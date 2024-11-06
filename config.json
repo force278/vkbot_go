@@ -1,0 +1,10 @@
+{
+  "token": "vk1.a.RpVFR7ZwZm57Enhz-rJAvj5vM8yXbI6AN9gFwA-ot4MJUlwEMYqzGHS4_duMuqoYEgysJz2C4-fOypt7iuQa20LtQR2-VSep4UuVjBrVibv8aoOQsP8UcvL-ebGtZh84syhxU61dqzJS1tnVRd1MndEf3tFpDTnNq60Y79eujFKepf1qnK58v5G7EcenJd6AE6pg83iyA6TttCwC3GquPw",
+  "groupID": "179955127",
+  "apiVersion": "5.119",
+  "dbName": "vkbot",
+  "dbUser": "postgres",
+  "dbPassword": "hekON1",
+  "dbHost": "localhost",
+  "dbPort": 5432
+}

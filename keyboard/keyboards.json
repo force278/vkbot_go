@@ -1,0 +1,471 @@
+{
+  "keyboard_main": {
+    "one_time": false,
+    "inline": false,
+    "buttons": [
+      [
+        {
+          "action": {
+            "type": "text",
+            "payload": "{\"value\":\"my_profile\"}",
+            "label": "👤Мой профиль"
+          }
+        },
+        {
+          "action": {
+            "type": "text",
+            "payload": "{\"value\":\"go_grade\"}",
+            "label": "🚀Оценивать"
+          }
+        },
+        {
+          "action": {
+            "type": "text",
+            "payload": "{\"value\":\"my_grades\"}",
+            "label": "⭐Кто меня оценил?"
+          }
+        }
+      ],
+      [
+        {
+          "action": {
+            "type": "text",
+            "payload": "{\"value\":\"top\"}",
+            "label": "🏆ТОП"
+          }
+        },
+        {
+          "action": {
+            "type": "text",
+            "payload": "{\"value\":\"about\"}",
+            "label": "🍉О боте?"
+          }
+        }
+      ]
+    ]
+  },
+  "keyboard_profile": {
+    "one_time": false,
+    "inline": false,
+    "buttons": [
+      [
+        {
+          "action": {
+            "type": "text",
+            "payload": "{\"value\":\"change_name\"}",
+            "label": "Изменить имя"
+          }
+        },
+        {
+          "action": {
+            "type": "text",
+            "payload": "{\"value\":\"change_photo\"}",
+            "label": "Изменить фото"
+          }
+        },
+        {
+          "action": {
+            "type": "text",
+            "payload": "{\"value\":\"sub\"}",
+            "label": "🔑Подписка"
+          }
+        }
+      ],
+      [
+        {
+          "action": {
+            "type": "text",
+            "payload": "{\"value\":\"account_link\"}",
+            "label": "📎Ссылка на профиль"
+          }
+        }
+      ],
+      [
+        {
+          "action": {
+            "type": "text",
+            "payload": "{\"value\":\"menu\"}",
+            "label": "Меню"
+          }
+        }
+      ]
+    ]
+  },
+  "keyboard_yes_no": {
+    "one_time": false,
+    "inline": false,
+    "buttons": [
+      [
+        {
+          "action": {
+            "type": "text",
+            "payload": "{\"value\":\"yes\"}",
+            "label": "Да"
+          }
+        },
+        {
+          "action": {
+            "type": "text",
+            "payload": "{\"value\":\"no\"}",
+            "label": "Нет"
+          }
+        }
+      ],
+      [
+        {
+          "action": {
+            "type": "text",
+            "payload": "{\"value\":\"menu\"}",
+            "label": "Меню"
+          }
+        }
+      ]
+    ]
+  },
+  "keyboard_top": {
+    "one_time": false,
+    "inline": false,
+    "buttons": [
+      [
+        {
+          "action": {
+            "type": "text",
+            "payload": "{\"value\":\"top_1\"}",
+            "label": "🥇"
+          }
+        },
+        {
+          "action": {
+            "type": "text",
+            "payload": "{\"value\":\"top_2\"}",
+            "label": "🥈"
+          }
+        },
+        {
+          "action": {
+            "type": "text",
+            "payload": "{\"value\":\"top_3\"}",
+            "label": "🥉"
+          }
+        }
+      ],
+      [
+        {
+          "action": {
+            "type": "text",
+            "payload": "{\"value\":\"top_10\"}",
+            "label": "👑10 самых красивых"
+          }
+        }
+      ],
+      [
+        {
+          "action": {
+            "type": "text",
+            "payload": "{\"value\":\"my_top_position\"}",
+            "label": "👽На каком я месте?"
+          }
+        }
+      ],
+      [
+        {
+          "action": {
+            "type": "text",
+            "payload": "{\"value\":\"menu\"}",
+            "label": "Меню"
+          }
+        }
+      ]
+    ]
+  },
+  "keyboard_grade": {
+    "one_time": false,
+    "inline": false,
+    "buttons": [
+      [
+        {
+          "action": {
+            "type": "text",
+            "payload": "{\"value\":\"grade_1\"}",
+            "label": "1"
+          }
+        },
+        {
+          "action": {
+            "type": "text",
+            "payload": "{\"value\":\"grade_2\"}",
+            "label": "2"
+          }
+        },
+        {
+          "action": {
+            "type": "text",
+            "payload": "{\"value\":\"grade_3\"}",
+            "label": "3"
+          }
+        },
+        {
+          "action": {
+            "type": "text",
+            "payload": "{\"value\":\"grade_4\"}",
+            "label": "4"
+          }
+        },
+        {
+          "action": {
+            "type": "text",
+            "payload": "{\"value\":\"grade_5\"}",
+            "label": "5"
+          }
+        }
+      ],
+      [
+        {
+          "action": {
+            "type": "text",
+            "payload": "{\"value\":\"grade_6\"}",
+            "label": "6"
+          }
+        },
+        {
+          "action": {
+            "type": "text",
+            "payload": "{\"value\":\"grade_7\"}",
+            "label": "7"
+          }
+        },
+        {
+          "action": {
+            "type": "text",
+            "payload": "{\"value\":\"grade_8\"}",
+            "label": "8"
+          }
+        },
+        {
+          "action": {
+            "type": "text",
+            "payload": "{\"value\":\"grade_9\"}",
+            "label": "9"
+          }
+        },
+        {
+          "action": {
+            "type": "text",
+            "payload": "{\"value\":\"grade_10\"}",
+            "label": "10"
+          }
+        }
+      ],
+      [
+        {
+          "action": {
+            "type": "text",
+            "payload": "{\"value\":\"menu\"}",
+            "label": "Меню"
+          }
+        },
+        {
+          "action": {
+            "type": "text",
+            "payload": "{\"value\":\"grade_message\"}",
+            "label": "💌Сообщение"
+          }
+        },
+        {
+          "action": {
+            "type": "text",
+            "payload": "{\"value\":\"grade_report\"}",
+            "label": "⚠Жалоба"
+          }
+        }
+      ]
+    ]
+  },
+  "keyboard_grade_moder": {
+    "one_time": false,
+    "inline": false,
+    "buttons": [
+      [
+        {
+          "action": {
+            "type": "text",
+            "payload": "{\"value\":\"grade_1\"}",
+            "label": "1"
+          }
+        },
+        {
+          "action": {
+            "type": "text",
+            "payload": "{\"value\":\"grade_2\"}",
+            "label": "2"
+          }
+        },
+        {
+          "action": {
+            "type": "text",
+            "payload": "{\"value\":\"grade_3\"}",
+            "label": "3"
+          }
+        },
+        {
+          "action": {
+            "type": "text",
+            "payload": "{\"value\":\"grade_4\"}",
+            "label": "4"
+          }
+        },
+        {
+          "action": {
+            "type": "text",
+            "payload": "{\"value\":\"grade_5\"}",
+            "label": "5"
+          }
+        }
+      ],
+      [
+        {
+          "action": {
+            "type": "text",
+            "payload": "{\"value\":\"grade_6\"}",
+            "label": "6"
+          }
+        },
+        {
+          "action": {
+            "type": "text",
+            "payload": "{\"value\":\"grade_7\"}",
+            "label": "7"
+          }
+        },
+        {
+          "action": {
+            "type": "text",
+            "payload": "{\"value\":\"grade_8\"}",
+            "label": "8"
+          }
+        },
+        {
+          "action": {
+            "type": "text",
+            "payload": "{\"value\":\"grade_9\"}",
+            "label": "9"
+          }
+        },
+        {
+          "action": {
+            "type": "text",
+            "payload": "{\"value\":\"grade_10\"}",
+            "label": "10"
+          }
+        }
+      ],
+      [
+        {
+          "action": {
+            "type": "text",
+            "payload": "{\"value\":\"menu\"}",
+            "label": "Меню"
+          }
+        },
+        {
+          "action": {
+            "type": "text",
+            "payload": "{\"value\":\"grade_message\"}",
+            "label": "💌Сообщение"
+          }
+        },
+        {
+          "action": {
+            "type": "text",
+            "payload": "{\"value\":\"grade_report\"}",
+            "label": "🚫Забанить"
+          }
+        }
+      ]
+    ]
+  },
+  "keyboard_report_choose": {
+    "one_time": false,
+    "inline": false,
+    "buttons": [
+      [
+        {
+          "action": {
+            "type": "text",
+            "payload": "{\"value\":\"report_18+\"}",
+            "label": "18+"
+          }
+        },
+        {
+          "action": {
+            "type": "text",
+            "payload": "{\"value\":\"report_younger_14\"}",
+            "label": "Младше 14"
+          }
+        },
+        {
+          "action": {
+            "type": "text",
+            "payload": "{\"value\":\"spam\"}",
+            "label": "Спам"
+          }
+        }
+      ],
+      [
+        {
+          "action": {
+            "type": "text",
+            "payload": "{\"value\":\"back\"}",
+            "label": "Назад"
+          }
+        }
+      ]
+    ]
+  },
+  "keyboard_back": {
+    "one_time": false,
+    "inline": false,
+    "buttons": [
+      [
+        {
+          "action": {
+            "type": "text",
+            "payload": "{\"value\":\"back\"}",
+            "label": "Назад"
+          }
+        }
+      ]
+    ]
+  },
+  "keyboard_buy_sub": {
+    "one_time": false,
+    "inline": false,
+    "buttons": [
+      [
+        {
+          "action": {
+            "type": "text",
+            "payload": "{\"value\":\"buy\"}",
+            "label": "Оплатить"
+          }
+        },
+        {
+          "action": {
+            "type": "text",
+            "payload": "{\"value\":\"buy_check\"}",
+            "label": "Проверить оплату"
+          }
+        }
+      ],
+      [
+        {
+          "action": {
+            "type": "text",
+            "payload": "{\"value\":\"back\"}",
+            "label": "Назад"
+          }
+        }
+      ]
+    ]
+  }
+}
