@@ -14,8 +14,9 @@ type Event struct {
 }
 
 type EventObject struct {
-	Message    Message    `json:"message"`
-	ClientInfo ClientInfo `json:"client_info"`
+	Message    Message    `json:"message,omitempty"`
+	Userid     uint       `json:"user_id,omitempty"`
+	ClientInfo ClientInfo `json:"client_info,omitempty"`
 }
 
 type Message struct {
@@ -95,6 +96,7 @@ type User struct {
 	Admin       int
 	Sub         int
 	LastMessage time.Time
+	State       int
 }
 
 type Grade struct {
