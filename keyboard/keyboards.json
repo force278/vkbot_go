@@ -7,21 +7,21 @@
         {
           "action": {
             "type": "text",
-            "payload": "{\"value\":\"my_profile\"}",
+            "payload": "my_profile",
             "label": "👤Мой профиль"
           }
         },
         {
           "action": {
             "type": "text",
-            "payload": "{\"value\":\"go_grade\"}",
+            "payload": "go_grade",
             "label": "🚀Оценивать"
           }
         },
         {
           "action": {
             "type": "text",
-            "payload": "{\"value\":\"my_grades\"}",
+            "payload": "my_grades",
             "label": "⭐Кто меня оценил?"
           }
         }
@@ -30,14 +30,14 @@
         {
           "action": {
             "type": "text",
-            "payload": "{\"value\":\"top\"}",
+            "payload": "top",
             "label": "🏆ТОП"
           }
         },
         {
           "action": {
             "type": "text",
-            "payload": "{\"value\":\"about\"}",
+            "payload": "about",
             "label": "🍉О боте?"
           }
         }
@@ -52,21 +52,21 @@
         {
           "action": {
             "type": "text",
-            "payload": "{\"value\":\"change_name\"}",
+            "payload": "change_name",
             "label": "Изменить имя"
           }
         },
         {
           "action": {
             "type": "text",
-            "payload": "{\"value\":\"change_photo\"}",
+            "payload": "change_photo",
             "label": "Изменить фото"
           }
         },
         {
           "action": {
             "type": "text",
-            "payload": "{\"value\":\"sub\"}",
+            "payload": "sub",
             "label": "🔑Подписка"
           }
         }
@@ -75,7 +75,7 @@
         {
           "action": {
             "type": "text",
-            "payload": "{\"value\":\"account_link\"}",
+            "payload": "account_link",
             "label": "📎Ссылка на профиль"
           }
         }
@@ -84,7 +84,7 @@
         {
           "action": {
             "type": "text",
-            "payload": "{\"value\":\"menu\"}",
+            "payload": "menu",
             "label": "Меню"
           }
         }
@@ -99,14 +99,14 @@
         {
           "action": {
             "type": "text",
-            "payload": "{\"value\":\"yes\"}",
+            "payload": "yes",
             "label": "Да"
           }
         },
         {
           "action": {
             "type": "text",
-            "payload": "{\"value\":\"no\"}",
+            "payload": "no",
             "label": "Нет"
           }
         }
@@ -115,7 +115,7 @@
         {
           "action": {
             "type": "text",
-            "payload": "{\"value\":\"menu\"}",
+            "payload": "menu",
             "label": "Меню"
           }
         }
@@ -130,21 +130,21 @@
         {
           "action": {
             "type": "text",
-            "payload": "{\"value\":\"top_1\"}",
+            "payload": "top_1",
             "label": "🥇"
           }
         },
         {
           "action": {
             "type": "text",
-            "payload": "{\"value\":\"top_2\"}",
+            "payload": "top_2",
             "label": "🥈"
           }
         },
         {
           "action": {
             "type": "text",
-            "payload": "{\"value\":\"top_3\"}",
+            "payload": "top_3",
             "label": "🥉"
           }
         }
@@ -153,7 +153,7 @@
         {
           "action": {
             "type": "text",
-            "payload": "{\"value\":\"top_10\"}",
+            "payload": "top_10",
             "label": "👑10 самых красивых"
           }
         }
@@ -162,7 +162,7 @@
         {
           "action": {
             "type": "text",
-            "payload": "{\"value\":\"my_top_position\"}",
+            "payload": "my_top_position",
             "label": "👽На каком я месте?"
           }
         }
@@ -171,7 +171,7 @@
         {
           "action": {
             "type": "text",
-            "payload": "{\"value\":\"menu\"}",
+            "payload": "menu",
             "label": "Меню"
           }
         }
@@ -186,35 +186,35 @@
         {
           "action": {
             "type": "text",
-            "payload": "{\"value\":\"grade_1\"}",
+            "payload": "grade_1",
             "label": "1"
           }
         },
         {
           "action": {
             "type": "text",
-            "payload": "{\"value\":\"grade_2\"}",
+            "payload": "grade_2",
             "label": "2"
           }
         },
         {
           "action": {
             "type": "text",
-            "payload": "{\"value\":\"grade_3\"}",
+            "payload": "grade_3",
             "label": "3"
           }
         },
         {
           "action": {
             "type": "text",
-            "payload": "{\"value\":\"grade_4\"}",
+            "payload": "grade_4",
             "label": "4"
           }
         },
         {
           "action": {
             "type": "text",
-            "payload": "{\"value\":\"grade_5\"}",
+            "payload": "grade_5",
             "label": "5"
           }
         }
@@ -223,35 +223,35 @@
         {
           "action": {
             "type": "text",
-            "payload": "{\"value\":\"grade_6\"}",
+            "payload": "grade_6",
             "label": "6"
           }
         },
         {
           "action": {
             "type": "text",
-            "payload": "{\"value\":\"grade_7\"}",
+            "payload": "grade_7",
             "label": "7"
           }
         },
         {
           "action": {
             "type": "text",
-            "payload": "{\"value\":\"grade_8\"}",
+            "payload": "grade_8",
             "label": "8"
           }
         },
         {
           "action": {
             "type": "text",
-            "payload": "{\"value\":\"grade_9\"}",
+            "payload": "grade_9",
             "label": "9"
           }
         },
         {
           "action": {
             "type": "text",
-            "payload": "{\"value\":\"grade_10\"}",
+            "payload": "grade_10",
             "label": "10"
           }
         }
@@ -260,21 +260,21 @@
         {
           "action": {
             "type": "text",
-            "payload": "{\"value\":\"menu\"}",
+            "payload": "menu",
             "label": "Меню"
           }
         },
         {
           "action": {
             "type": "text",
-            "payload": "{\"value\":\"grade_message\"}",
+            "payload": "grade_message",
             "label": "💌Сообщение"
           }
         },
         {
           "action": {
             "type": "text",
-            "payload": "{\"value\":\"grade_report\"}",
+            "payload": "grade_report",
             "label": "⚠Жалоба"
           }
         }
@@ -289,35 +289,35 @@
         {
           "action": {
             "type": "text",
-            "payload": "{\"value\":\"grade_1\"}",
+            "payload": "grade_1",
             "label": "1"
           }
         },
         {
           "action": {
             "type": "text",
-            "payload": "{\"value\":\"grade_2\"}",
+            "payload": "grade_2",
             "label": "2"
           }
         },
         {
           "action": {
             "type": "text",
-            "payload": "{\"value\":\"grade_3\"}",
+            "payload": "grade_3",
             "label": "3"
           }
         },
         {
           "action": {
             "type": "text",
-            "payload": "{\"value\":\"grade_4\"}",
+            "payload": "grade_4",
             "label": "4"
           }
         },
         {
           "action": {
             "type": "text",
-            "payload": "{\"value\":\"grade_5\"}",
+            "payload": "grade_5",
             "label": "5"
           }
         }
@@ -326,35 +326,35 @@
         {
           "action": {
             "type": "text",
-            "payload": "{\"value\":\"grade_6\"}",
+            "payload": "grade_6",
             "label": "6"
           }
         },
         {
           "action": {
             "type": "text",
-            "payload": "{\"value\":\"grade_7\"}",
+            "payload": "grade_7",
             "label": "7"
           }
         },
         {
           "action": {
             "type": "text",
-            "payload": "{\"value\":\"grade_8\"}",
+            "payload": "grade_8",
             "label": "8"
           }
         },
         {
           "action": {
             "type": "text",
-            "payload": "{\"value\":\"grade_9\"}",
+            "payload": "grade_9",
             "label": "9"
           }
         },
         {
           "action": {
             "type": "text",
-            "payload": "{\"value\":\"grade_10\"}",
+            "payload": "grade_10",
             "label": "10"
           }
         }
@@ -363,21 +363,21 @@
         {
           "action": {
             "type": "text",
-            "payload": "{\"value\":\"menu\"}",
+            "payload": "menu",
             "label": "Меню"
           }
         },
         {
           "action": {
             "type": "text",
-            "payload": "{\"value\":\"grade_message\"}",
+            "payload": "grade_message",
             "label": "💌Сообщение"
           }
         },
         {
           "action": {
             "type": "text",
-            "payload": "{\"value\":\"grade_report\"}",
+            "payload": "grade_report",
             "label": "🚫Забанить"
           }
         }
@@ -392,21 +392,21 @@
         {
           "action": {
             "type": "text",
-            "payload": "{\"value\":\"report_18+\"}",
+            "payload": "report_18+",
             "label": "18+"
           }
         },
         {
           "action": {
             "type": "text",
-            "payload": "{\"value\":\"report_younger_14\"}",
+            "payload": "report_younger_14",
             "label": "Младше 14"
           }
         },
         {
           "action": {
             "type": "text",
-            "payload": "{\"value\":\"spam\"}",
+            "payload": "spam",
             "label": "Спам"
           }
         }
@@ -415,7 +415,7 @@
         {
           "action": {
             "type": "text",
-            "payload": "{\"value\":\"back\"}",
+            "payload": "back",
             "label": "Назад"
           }
         }
@@ -430,7 +430,7 @@
         {
           "action": {
             "type": "text",
-            "payload": "{\"value\":\"back\"}",
+            "payload": "back",
             "label": "Назад"
           }
         }
@@ -445,14 +445,14 @@
         {
           "action": {
             "type": "text",
-            "payload": "{\"value\":\"buy\"}",
+            "payload": "buy",
             "label": "Оплатить"
           }
         },
         {
           "action": {
             "type": "text",
-            "payload": "{\"value\":\"buy_check\"}",
+            "payload": "buy_check",
             "label": "Проверить оплату"
           }
         }
@@ -461,7 +461,7 @@
         {
           "action": {
             "type": "text",
-            "payload": "{\"value\":\"back\"}",
+            "payload": "back",
             "label": "Назад"
           }
         }

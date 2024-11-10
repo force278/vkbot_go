@@ -19,7 +19,9 @@ func SendMessage(userID uint, message string, keyboard string) {
 	params.Set("access_token", config.AppConfig.Token)
 	params.Set("user_id", fmt.Sprintf("%d", userID))
 	params.Set("message", message)
-	params.Set("keyboard", keyboard)
+	if keyboard != "" {
+		params.Set("keyboard", keyboard)
+	}
 	params.Set("random_id", fmt.Sprintf("%d", time.Now().UnixNano())) // Уникальный ID для каждой отправки сообщения
 	params.Set("v", config.AppConfig.ApiVersion)
 
@@ -56,7 +58,6 @@ func SendPhoto(userID int, photo struct {
 
 // Получение URL загрузки для фотографий
 func GetUploadServer() string {
-	fmt.Println(config.AppConfig)
 	params := url.Values{}
 	params.Set("access_token", config.AppConfig.Token)
 	params.Set("group_id", config.AppConfig.GroupID)
@@ -86,7 +87,7 @@ func SavePhoto(uploadResult struct {
 	Photo  string `json:"photo"`
 	Server int    `json:"server"`
 	Hash   string `json:"hash"`
-}, userID int) {
+}, userID uint) string {
 	params := url.Values{}
 	params.Set("access_token", config.AppConfig.Token)
 	params.Set("v", config.AppConfig.ApiVersion)
@@ -98,7 +99,7 @@ func SavePhoto(uploadResult struct {
 	resp, err := http.PostForm("https://api.vk.com/method/photos.saveMessagesPhoto", params)
 	if err != nil {
 		fmt.Println("Ошибка сохранения фотографии:", err)
-		return
+		return ""
 	}
 	defer resp.Body.Close()
 
@@ -116,29 +117,30 @@ func SavePhoto(uploadResult struct {
 
 	if err := json.NewDecoder(resp.Body).Decode(&saveResult); err != nil {
 		fmt.Println("Ошибка декодирования ответа:", err)
-		return
+		return ""
 	}
 
 	if saveResult.Error.ErrorCode != 0 {
 		fmt.Printf("Ошибка API: код %d, сообщение: %s\n", saveResult.Error.ErrorCode, saveResult.Error.ErrorMsg)
-		return
+		return ""
 	}
 
 	if len(saveResult.Response) > 0 {
 		photo := saveResult.Response[0]
-		message := fmt.Sprintf("Вот ваша фотография: https://vk.com/photo%d_%d", photo.OwnerID, photo.ID)
-		SendPhoto(userID, photo, message)
+		photo_string := fmt.Sprintf("photo%d_%d_%s", photo.OwnerID, photo.ID, photo.AccessKey)
+		return photo_string
 	} else {
 		fmt.Println("Ошибка: сохраненная фотография отсутствует в ответе.")
+		return ""
 	}
 }
 
-func UploadPhoto(uploadURL string, photo utils.Photo, userID int) {
+func UploadPhoto(uploadURL string, photo utils.Photo, userID uint) string {
 	// Получаем файл фотографии
 	fileResp, err := http.Get(photo.Sizes[len(photo.Sizes)-1].URL) // Получаем URL фотографии
 	if err != nil {
 		fmt.Println("Ошибка получения фотографии:", err)
-		return
+		return ""
 	}
 	defer fileResp.Body.Close()
 
@@ -150,27 +152,27 @@ func UploadPhoto(uploadURL string, photo utils.Photo, userID int) {
 	part, err := writer.CreateFormFile("photo", "photo.jpg") // Имя файла можно задать любое
 	if err != nil {
 		fmt.Println("Ошибка создания формы:", err)
-		return
+		return ""
 	}
 	// Копируем содержимое файла в часть формы
 	_, err = io.Copy(part, fileResp.Body)
 	if err != nil {
 		fmt.Println("Ошибка копирования файла:", err)
-		return
+		return ""
 	}
 
 	// Закрываем writer, чтобы завершить формирование запроса
 	err = writer.Close()
 	if err != nil {
 		fmt.Println("Ошибка закрытия writer:", err)
-		return
+		return ""
 	}
 
 	// Загружаем фотографию на сервер
 	resp, err := http.Post(uploadURL, writer.FormDataContentType(), &buf)
 	if err != nil {
 		fmt.Println("Ошибка загрузки фотографии:", err)
-		return
+		return ""
 	}
 	defer resp.Body.Close()
 
@@ -178,7 +180,7 @@ func UploadPhoto(uploadURL string, photo utils.Photo, userID int) {
 	responseBody, err := io.ReadAll(resp.Body)
 	if err != nil {
 		fmt.Println("Ошибка чтения ответа:", err)
-		return
+		return ""
 	}
 
 	// Обрабатываем ответ
@@ -190,14 +192,13 @@ func UploadPhoto(uploadURL string, photo utils.Photo, userID int) {
 
 	if err := json.Unmarshal(responseBody, &uploadResult); err != nil {
 		fmt.Println("Ошибка декодирования ответа:", err)
-		return
+		return ""
 	}
 
 	// Проверяем, что данные корректны
 	if uploadResult.Photo == "[]" || uploadResult.Server == 0 || uploadResult.Hash == "" {
 		fmt.Printf("Ошибка загрузки фотографии: %+v\n", uploadResult)
-		return
+		return ""
 	}
-
-	SavePhoto(uploadResult, userID)
+	return SavePhoto(uploadResult, userID)
 }

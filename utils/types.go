@@ -25,6 +25,7 @@ type Message struct {
 	IsHidden    bool         `json:"is_hidden"`
 	Attachments []Attachment `json:"attachments"`
 	Text        string       `json:"text"`
+	Payload     string       `json:"payload,omitempty"`
 }
 
 type Attachment struct {
@@ -34,9 +35,9 @@ type Attachment struct {
 }
 
 type Photo struct {
-	AlbumID   uint        `json:"album_id"`
+	AlbumID   int64       `json:"album_id"`
 	ID        uint        `json:"id"`
-	OwnerID   uint        `json:"owner_id"`
+	OwnerID   int64       `json:"owner_id"`
 	AccessKey string      `json:"access_key"`
 	Sizes     []PhotoSize `json:"sizes"`
 	Text      string      `json:"text"`

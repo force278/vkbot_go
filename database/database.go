@@ -62,7 +62,7 @@ func CreateDatabaseAndTables() error {
 			admin BOOLEAN DEFAULT FALSE,
 			address TEXT,
 			sub TEXT,
-			last_message TIMESTAMP,
+			lastmessage TIMESTAMP,
 			state INT DEFAULT 0
 		);`,
 		`CREATE TABLE IF NOT EXISTS stack (
@@ -96,17 +96,17 @@ func CreateDatabaseAndTables() error {
 	return nil
 }
 
-func AddStatusColumnIfNotExists() error {
+func AddStateColumnIfNotExists() error {
 	if DB == nil {
 		return fmt.Errorf("database connection is not established")
 	}
-	// Проверяем, существует ли колонка 'status' в таблице 'bibinto'
+	// Проверяем, существует ли колонка 'state' в таблице 'bibinto'
 	var exists bool
 	query := `
 		SELECT EXISTS (
 			SELECT 1 
 			FROM information_schema.columns 
-			WHERE table_name='bibinto' AND column_name='status'
+			WHERE table_name='bibinto' AND column_name='state'
 		);
 	`
 	err := DB.QueryRow(context.Background(), query).Scan(&exists)
@@ -116,15 +116,15 @@ func AddStatusColumnIfNotExists() error {
 	}
 	// Если колонка не существует, добавляем ее
 	if !exists {
-		alterQuery := `ALTER TABLE bibinto ADD COLUMN status int;`
+		alterQuery := `ALTER TABLE bibinto ADD COLUMN state int;`
 		_, err := DB.Exec(context.Background(), alterQuery)
 		if err != nil {
 			fmt.Printf("Ошибка при добавлении колонки: %v\n", err)
 			return err
 		}
-		fmt.Println("Колонка 'status' успешно добавлена в таблицу 'bibinto'")
+		fmt.Println("Колонка 'state' успешно добавлена в таблицу 'bibinto'")
 	} else {
-		fmt.Println("Колонка 'status' уже существует в таблице 'bibinto'")
+		fmt.Println("Колонка 'state' уже существует в таблице 'bibinto'")
 	}
 	return nil
 }
@@ -182,7 +182,7 @@ func GetUser(userid uint) (utils.User, bool, error) {
 		}
 	} else {
 		// Если строки нет, возвращаем ошибку, что пользователь не найден
-		return utils.User{}, false, fmt.Errorf("user with userid %d not found", userid)
+		return utils.User{}, false, nil
 	}
 	// Проверка на ошибки после обхода строк
 	if err := rows.Err(); err != nil {
@@ -198,10 +198,10 @@ func AddUser(userid uint) (uint, error) {
 		return 0, fmt.Errorf("database connection is not established")
 	}
 	query := `
-		INSERT INTO bibinto (user_id, name, photo, score, people, ban, address, admin, sub, last_message, state)
-		VALUES (\$1, \$2, \$3, \$4, \$5, \$6, \$7, \$8, \$9, \$10, \$11)
-		RETURNING id
-	`
+	INSERT INTO bibinto (userid, name, photo, score, people, ban, address, admin, sub, lastmessage, state)
+	VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+	RETURNING id
+`
 	// Выполнение запроса
 	var id uint
 	err := DB.QueryRow(context.Background(), query, user.UserID, user.Name, user.Photo, user.Score, user.People, user.Ban, user.Address, user.Admin, user.Sub, user.LastMessage, user.State).Scan(&id)
@@ -221,17 +221,17 @@ func UpdateUser(user utils.User) error {
 	// Формируем SQL-запрос
 	query := `
 		UPDATE bibinto SET
-			name = COALESCE(NULLIF(\$1, ''), name),
-			photo = COALESCE(NULLIF(\$2, ''), photo),
-			score = COALESCE(NULLIF(\$3, -1), score),
-			people = COALESCE(NULLIF(\$4, -1), people),
-			ban = COALESCE(\$5, ban),
-			address = COALESCE(\$6, address),
-			admin = COALESCE(\$7, admin),
-			sub = COALESCE(\$8, sub),
-			last_message = COALESCE(\$9, last_message)
-			state = COALESCE(\$10, state)
-		WHERE id = \$11
+			name = COALESCE(NULLIF($1, ''), name),
+			photo = COALESCE(NULLIF($2, ''), photo),
+			score = COALESCE(NULLIF($3, -1), score),
+			people = COALESCE(NULLIF($4, -1), people),
+			ban = COALESCE($5, ban),
+			address = COALESCE($6, address),
+			admin = COALESCE($7, admin),
+			sub = COALESCE($8, sub),
+			lastmessage = COALESCE($9, lastmessage),
+			state = COALESCE($10, state)
+		WHERE id = $11
 	`
 
 	// Выполнение запроса
@@ -283,7 +283,7 @@ func AddStack(userid uint) error {
 	}
 	query := `
 		INSERT INTO stack (userid)
-		VALUES (\$1)
+		VALUES ($1)
 		RETURNING id
 	`
 	// Выполнение запроса
@@ -301,7 +301,7 @@ func DeleteHistory(userid uint) error {
 		return fmt.Errorf("database connection is not established")
 	}
 
-	query := `DELETE FROM bibinto WHERE id = \$1` // Параметризованный запрос для предотвращения SQL-инъекций
+	query := `DELETE FROM bibinto WHERE id = $1` // Параметризованный запрос для предотвращения SQL-инъекций
 
 	// Выполняем запрос на удаление
 	result, err := DB.Exec(context.Background(), query, userid)
@@ -328,8 +328,8 @@ func Ban(userid uint) error {
 	// Формируем SQL-запрос
 	query := `
 		UPDATE bibinto SET
-			ban = \$1
-		WHERE id = \$2
+			ban = $1
+		WHERE id = $2
 	`
 
 	// Выполнение запроса
@@ -348,7 +348,7 @@ func AddGrade(userid uint, valuerid uint, grade int, message *string) error {
 		return fmt.Errorf("database connection is not established")
 	}
 
-	query := `INSERT INTO grades (user_id, valuerid, grade, message) VALUES (\$1, \$2, \$3, \$4)`
+	query := `INSERT INTO grades (userid, valuerid, grade, message) VALUES ($1, $2, $3, $4)`
 	// Выполняем запрос на добавление оценки
 	_, err := DB.Exec(context.Background(), query, userid, valuerid, grade, message)
 	if err != nil {
@@ -375,7 +375,7 @@ func GetGrades(userid uint) ([]utils.Grade, error) {
 	query := `SELECT grades.id, grades.userid, grades.valuerid, grades.grade, grades.message 
 FROM grades 
 JOIN bibinto ON grades.valuerid = bibinto.userid 
-WHERE grades.userid = \$1 
+WHERE grades.userid = $1 
 ORDER BY grades.message LIMIT 5`
 	rows, err := tx.Query(context.Background(), query, userid)
 	if err != nil {
@@ -404,7 +404,7 @@ ORDER BY grades.message LIMIT 5`
 			if i > 0 {
 				deleteQuery += ", "
 			}
-			deleteQuery += fmt.Sprintf("$%d", i+1) // Параметры начинаются с \$1
+			deleteQuery += fmt.Sprintf("$%d", i+1) // Параметры начинаются с $1
 		}
 		deleteQuery += ")"
 
@@ -542,7 +542,7 @@ func IsFull(userid uint) (bool, error) {
 	var user utils.User
 
 	// SQL-запрос для поиска пользователя по userID
-	query := `SELECT id, name, photo FROM bibinto WHERE userID = \$1`
+	query := `SELECT id, name, photo FROM bibinto WHERE userID = $1`
 	err := DB.QueryRow(context.Background(), query, userid).Scan(&user.ID, &user.Name, &user.Photo)
 	if err != nil {
 		if err == sql.ErrNoRows {
@@ -569,7 +569,7 @@ func UpdateLastMessage(userid uint) error {
 	currentTime := time.Now()
 
 	// SQL-запрос для обновления поля LastMessage
-	query := `UPDATE bibinto SET LastMessage = \$1 WHERE userID = \$2`
+	query := `UPDATE bibinto SET LastMessage = $1 WHERE userID = $2`
 	_, err := DB.Exec(context.Background(), query, currentTime, userid)
 	if err != nil {
 		return err // Возвращаем ошибку, если произошла ошибка при обновлении
@@ -584,7 +584,7 @@ func UpdateState(userid uint, state int) error {
 	}
 
 	// SQL-запрос для обновления поля LastMessage
-	query := `UPDATE bibinto SET State = \$1 WHERE userID = \$2`
+	query := `UPDATE bibinto SET state = $1 WHERE userID = $2`
 	_, err := DB.Exec(context.Background(), query, state, userid)
 	if err != nil {
 		return err // Возвращаем ошибку, если произошла ошибка при обновлении

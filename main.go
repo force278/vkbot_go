@@ -80,8 +80,7 @@ func LoggingMiddleware(next http.Handler) http.Handler {
 				user.ID = newID
 			}
 		}
-		fmt.Printf("%+v", user)
-
+		fmt.Printf("%+v\n", user)
 		// Проверяем запрос
 		if user.Ban == 1 {
 			return
@@ -112,7 +111,7 @@ func main() {
 
 	database.Connect()
 	defer database.Disconnect()
-	database.AddStatusColumnIfNotExists()
+	database.AddStateColumnIfNotExists()
 
 	if err := keyboards.FromJSON(); err != nil {
 		fmt.Println("Ошибка чтения keyboard.json: ", err)
@@ -139,15 +138,15 @@ func callbackHandler(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "No event found in context", http.StatusInternalServerError)
 		return
 	}
+	user, ok := r.Context().Value(userContextKey).(utils.User)
+	if !ok {
+		http.Error(w, "No event found in context", http.StatusInternalServerError)
+		return
+	}
 
 	switch event.Type {
 	case "message_new":
-		keyboard, err := keyboards.KeyboardMain.ToJSON()
-		if err != nil {
-			fmt.Printf("Error converting keyboard to JSON: %v", err)
-			return
-		}
-		funcs.SendMessage(event.Object.Message.FromID, "ABOBA", keyboard)
+		funcs.Handle(event, user, keyboards)
 		/*
 			if len(event.Object.Message.Attachments) > 0 {
 				attachment := event.Object.Message.Attachments[0]
