@@ -116,6 +116,12 @@ func Handle(event utils.Event, user utils.User, keyboards keyboard.Keyboards) {
 				case `{"value":"top"}`:
 					{
 						users, _ := database.Top()
+						if len(users) < 1 {
+							keyboard, _ := keyboards.KeyboardMain.ToJSON()
+							database.UpdateState(user.UserID, utils.MENU_STATE)
+							SendMessage(user.UserID, "Топ пока не сформирован", keyboard)
+							return
+						}
 						message := fmt.Sprintf("🥇ТОП 1\n\n🍀Имя: %s", users[0].Name)
 						if users[0].Address == 1 || user.Admin == 1 || user.Sub == 1 {
 							addressString := fmt.Sprintf("\n📎Ссылка на страницу: @id{%d}({%s})", users[0].UserID, users[0].Name)
@@ -379,7 +385,7 @@ func Handle(event utils.Event, user utils.User, keyboards keyboard.Keyboards) {
 				{
 					goGrade(user, keyboards, "")
 				}
-				SendMessage(config.AppConfig.reportAdmin, adminMessage)
+				SendMessage(config.AppConfig.reportAdmin, adminMessage, "")
 				goGrade(user, keyboards, "Спасибо за жалобу, мы рассмотрим его в ближайшее время!")
 			}
 
@@ -425,6 +431,104 @@ func Handle(event utils.Event, user utils.User, keyboards keyboard.Keyboards) {
 		}
 	case utils.TOP_STATE:
 		{
+			switch event.Object.Message.Payload {
+			case `{"value":"top_1"}`:
+				{
+					users, _ := database.Top()
+					if len(users) < 1 {
+						keyboard, _ := keyboards.KeyboardMain.ToJSON()
+						database.UpdateState(user.UserID, utils.MENU_STATE)
+						SendMessage(user.UserID, "Топ пока не сформирован", keyboard)
+						return
+					}
+					message := fmt.Sprintf("🥇ТОП 1\n\n🍀Имя: %s", users[0].Name)
+					if users[0].Address == 1 || user.Admin == 1 || user.Sub == 1 {
+						addressString := fmt.Sprintf("\n📎Ссылка на страницу: @id{%d}({%s})", users[0].UserID, users[0].Name)
+						message = fmt.Sprintf("%s%s", message, addressString)
+					}
+					var score float32
+					if users[0].People != 0 {
+						score = float32(users[0].Score) / float32(users[0].People)
+					} else {
+						score = 0
+					}
+					tempMessage := fmt.Sprintf("\n⭐Фото оценили на: {%.2f}/10\n👥Оценили {%d} человек", score, users[0].People)
+					message = fmt.Sprintf("%s%s", message, tempMessage)
+					keyboard, _ := keyboards.KeyboardTop.ToJSON()
+					SendPhoto(user.UserID, users[0].Photo, message, keyboard)
+				}
+			case `{"value":"top_2"}`:
+				{
+					users, _ := database.Top()
+					if len(users) < 2 {
+						keyboard, _ := keyboards.KeyboardMain.ToJSON()
+						database.UpdateState(user.UserID, utils.MENU_STATE)
+						SendMessage(user.UserID, "Топ пока не сформирован", keyboard)
+						return
+					}
+					message := fmt.Sprintf("🥇ТОП 1\n\n🍀Имя: %s", users[1].Name)
+					if users[1].Address == 1 || user.Admin == 1 || user.Sub == 1 {
+						addressString := fmt.Sprintf("\n📎Ссылка на страницу: @id{%d}({%s})", users[1].UserID, users[1].Name)
+						message = fmt.Sprintf("%s%s", message, addressString)
+					}
+					var score float32
+					if users[1].People != 0 {
+						score = float32(users[1].Score) / float32(users[1].People)
+					} else {
+						score = 0
+					}
+					tempMessage := fmt.Sprintf("\n⭐Фото оценили на: {%.2f}/10\n👥Оценили {%d} человек", score, users[1].People)
+					message = fmt.Sprintf("%s%s", message, tempMessage)
+					keyboard, _ := keyboards.KeyboardTop.ToJSON()
+					SendPhoto(user.UserID, users[1].Photo, message, keyboard)
+				}
+			case `{"value":"top_3"}`:
+				{
+					users, _ := database.Top()
+					if len(users) < 3 {
+						keyboard, _ := keyboards.KeyboardMain.ToJSON()
+						database.UpdateState(user.UserID, utils.MENU_STATE)
+						SendMessage(user.UserID, "Топ пока не сформирован", keyboard)
+						return
+					}
+					message := fmt.Sprintf("🥇ТОП 1\n\n🍀Имя: %s", users[2].Name)
+					if users[2].Address == 1 || user.Admin == 1 || user.Sub == 1 {
+						addressString := fmt.Sprintf("\n📎Ссылка на страницу: @id{%d}({%s})", users[2].UserID, users[2].Name)
+						message = fmt.Sprintf("%s%s", message, addressString)
+					}
+					var score float32
+					if users[2].People != 0 {
+						score = float32(users[2].Score) / float32(users[2].People)
+					} else {
+						score = 0
+					}
+					tempMessage := fmt.Sprintf("\n⭐Фото оценили на: {%.2f}/10\n👥Оценили {%d} человек", score, users[2].People)
+					message = fmt.Sprintf("%s%s", message, tempMessage)
+					keyboard, _ := keyboards.KeyboardTop.ToJSON()
+					SendPhoto(user.UserID, users[0].Photo, message, keyboard)
+				}
+			case `{"value":"top_10"}`:
+				{
+					top10, _ := database.Top10()
+					var photos string
+					for photo := range top10 {
+						photos = fmt.Sprintf("%s, %s", photos, photo)
+					}
+					SendPhoto(user.UserID, photos, "", "")
+				}
+			case `{"value":"my_top_position"}`:
+				{
+					my_top, _ := database.MyTop(user.UserID)
+					message := fmt.Sprintf("Твоя позиция в топе: %d", my_top)
+					SendMessage(user.UserID, message, "")
+				}
+			case `{"value":"menu"}`:
+				{
+					keyboard, _ := keyboards.KeyboardMain.ToJSON()
+					database.UpdateState(user.UserID, utils.MENU_STATE)
+					SendMessage(user.UserID, "Меню", keyboard)
+				}
+			}
 
 		}
 	case utils.ADD_STATE:
