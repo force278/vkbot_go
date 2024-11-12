@@ -38,8 +38,6 @@ func LoggingMiddleware(next http.Handler) http.Handler {
 
 		// Логируем информацию о запросе
 		log.Printf("Received request: %+v", event)
-		w.WriteHeader(http.StatusOK)
-		fmt.Fprint(w, "ok")
 
 		var user utils.User
 		var userID uint
@@ -167,5 +165,6 @@ func callbackHandler(w http.ResponseWriter, r *http.Request) {
 	default:
 
 	}
-
+	w.WriteHeader(http.StatusOK)
+	fmt.Fprint(w, "ok")
 }

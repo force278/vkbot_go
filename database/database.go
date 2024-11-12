@@ -254,27 +254,35 @@ func UpdateUser(user utils.User) error {
 	return nil
 }
 
-func GetRec(userid uint) (utils.User, error) {
+func GetRec(userid uint) (utils.User, bool, error) {
 	if DB == nil {
-		fmt.Print("Database connection is not established")
+		return utils.User{}, false, fmt.Errorf("Database connection is not established")
 	}
-	query := fmt.Sprintf("SELECT * FROM bibinto WHERE UserID = (SELECT UserID FROM stack WHERE UserID NOT IN (SELECT UserID FROM history WHERE ValuerID = %d) AND UserID <> %d ORDER BY id DESC LIMIT 1)", userid, userid) // Предположим, у вас есть таблица users
+
+	query := fmt.Sprintf("SELECT * FROM bibinto WHERE UserID = (SELECT UserID FROM stack WHERE UserID NOT IN (SELECT UserID FROM history WHERE ValuerID = %d) AND UserID <> %d ORDER BY id DESC LIMIT 1)", userid, userid)
+
 	rows, err := DB.Query(context.Background(), query)
 	if err != nil {
-		fmt.Printf("Ошибка выполения запроса GetRec: %v\n", err)
+		return utils.User{}, false, fmt.Errorf("Ошибка выполнения запроса GetRec: %v", err)
 	}
 	defer rows.Close() // Закрываем rows после завершения работы с ними
+
 	var user utils.User
-	for rows.Next() {
+	if rows.Next() {
 		if err := rows.Scan(&user.ID, &user.UserID, &user.Name, &user.Photo, &user.Score, &user.People, &user.Active, &user.Ban, &user.Admin, &user.Address, &user.Sub, &user.LastMessage, &user.State); err != nil {
-			fmt.Printf("Failed to scan row: %v\n", err)
+			return utils.User{}, false, fmt.Errorf("Failed to scan row: %v", err)
 		}
+	} else {
+		// Если нет строк, значит пользователь не найден
+		return utils.User{}, false, nil
 	}
+
 	// Проверка на ошибки после обхода строк
 	if err := rows.Err(); err != nil {
-		fmt.Printf("Error occurred during rows iteration: %v\n", err)
+		return utils.User{}, false, fmt.Errorf("Error occurred during rows iteration: %v", err)
 	}
-	return user, nil
+
+	return user, true, nil
 }
 
 func AddStack(userid uint) error {

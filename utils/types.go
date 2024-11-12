@@ -75,12 +75,17 @@ type ClientInfo struct {
 	LangID         int      `json:"lang_id"`
 }
 
-func (Event) GetStruct(data []byte, event *Event) {
-	err := json.Unmarshal(data, &event)
-	if err != nil {
-		fmt.Println("Error deserializing JSON:", err)
-		return
+func (Event) GetStruct(data []byte, event *Event) error {
+	// Проверяем, что данные не пустые
+	if len(data) == 0 {
+		return fmt.Errorf("empty data provided")
 	}
+
+	err := json.Unmarshal(data, event)
+	if err != nil {
+		return fmt.Errorf("error deserializing JSON: %w", err)
+	}
+	return nil
 }
 
 // User представляет структуру для хранения информации о пользователе

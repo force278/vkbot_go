@@ -34,26 +34,29 @@ func SendMessage(userID uint, message string, keyboard string) {
 	}
 }
 
-func SendPhoto(userID int, photo struct {
-	ID        int64  `json:"id"`
-	OwnerID   int64  `json:"owner_id"`
-	AccessKey string `json:"access_key"`
-}, message string) {
+func SendPhoto(userID uint, photo string, message string, keyboard string) {
 	params := url.Values{}
 	params.Set("access_token", config.AppConfig.Token)
 	params.Set("user_id", fmt.Sprintf("%d", userID))
-	params.Set("attachment", fmt.Sprintf("photo%d_%d", photo.OwnerID, photo.ID))
+	params.Set("attachment", photo)
 	params.Set("message", message)
+	if keyboard != "" {
+		params.Set("keyboard", keyboard)
+	}
 	params.Set("random_id", fmt.Sprintf("%d", time.Now().UnixNano())) // Уникальный ID для каждой отправки сообщения
 	params.Set("v", config.AppConfig.ApiVersion)
 
 	res, err := http.PostForm("https://api.vk.com/method/messages.send", params)
 	if err != nil {
 		fmt.Println("Ошибка отправки сообщения:", err)
+		return
 	}
-	if res.StatusCode != 200 {
-		fmt.Println("Ошибка SendPhoto: ", res.StatusCode)
-	}
+	defer res.Body.Close() // Закрываем тело ответа после обработки
+
+	body, _ := io.ReadAll(res.Body) // Читаем тело ответа для диагностики
+	fmt.Println("Ответ от сервера:", string(body))
+
+	// Здесь можно добавить обработку успешного ответа, если это необходимо
 }
 
 // Получение URL загрузки для фотографий
@@ -201,4 +204,8 @@ func UploadPhoto(uploadURL string, photo utils.Photo, userID uint) string {
 		return ""
 	}
 	return SavePhoto(uploadResult, userID)
+}
+
+func CheckBuySub() {
+
 }

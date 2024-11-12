@@ -54,14 +54,143 @@ func Handle(event utils.Event, user utils.User, keyboards keyboard.Keyboards) {
 	case utils.MENU_STATE:
 		{
 			if event.Object.Message.Payload == "" {
-				fmt.Print("Поле пустое")
+				SendMessage(user.UserID, "Используй клавиатуру", "")
 			} else {
-				fmt.Print("Поле не пустое")
+				switch event.Object.Message.Payload {
+				case `{"value":"my_profile"}`:
+					{
+						my_profile(user, keyboards)
+					}
+				case `{"value":"go_grade"}`:
+					{
+						rec_user, recExists, err := database.GetRec(user.UserID)
+						if err != nil {
+							fmt.Printf("Ошибка в MENU_STATE go_grade %s", err)
+							return
+						}
+						if !recExists {
+							keyboard, _ := keyboards.KeyboardMain.ToJSON()
+							SendMessage(user.UserID, "Больше нет людей для оценки, подождите пока появятся новые пользователи.\n\nМеню:", keyboard)
+							return
+						}
+						var message string
+						if user.Sub == 1 {
+							addressString := fmt.Sprintf("\n📎Ссылка на страницу: @id%d(%s)", rec_user.UserID, rec_user.Name)
+							message = fmt.Sprintf("%s %s", message, addressString)
+						}
+						var keyboard string
+						if user.Admin == 1 {
+							keyboard, _ = keyboards.KeyboardGradeModer.ToJSON()
+						} else {
+							keyboard, _ = keyboards.KeyboardGrade.ToJSON()
+						}
+						database.UpdateState(user.UserID, utils.GO_STATE)
+						SendPhoto(user.UserID, rec_user.Photo, message, keyboard)
+					}
+				case `{"value":"my_grades"}`:
+					{
+						grades, err := database.GetGrades(user.UserID)
+						if err != nil {
+							fmt.Printf("Ошибка в MENU_STATE my_grades: %s", err)
+							return
+						}
+						if len(grades) == 0 {
+							SendMessage(user.UserID, "Вас пока никто не оценил, оценивайте чаще и получите оценки.", "")
+							return
+						}
+						for _, grade := range grades {
+							if grade.User.Ban == 1 {
+								SendMessage(user.UserID, "👮‍♂️Оценка от забаненного пользователя, мы скрыли его.", "")
+							}
+							message := fmt.Sprintf("🧒Имя оценщика %s\n⭐Оценил вас на %d/10\n", grade.User.Name, grade.Grade)
+							if grade.User.Address == 1 || user.Sub == 1 || user.Admin == 1 {
+								addressString := fmt.Sprintf("\n📎Ссылка на страницу: @id%d(%s)", grade.User.UserID, grade.User.Name)
+								message = fmt.Sprintf("%s%s", message, addressString)
+							}
+							message = fmt.Sprintf("%s%s", message, "👇🏻Фотография оценщика👇🏻")
+							SendPhoto(user.UserID, grade.User.Photo, message, "")
+						}
+					}
+				case `{"value":"top"}`:
+					{
+						users, _ := database.Top()
+						message := fmt.Sprintf("🥇ТОП 1\n\n🍀Имя: %s", users[0].Name)
+						if users[0].Address == 1 || user.Admin == 1 || user.Sub == 1 {
+							addressString := fmt.Sprintf("\n📎Ссылка на страницу: @id{%d}({%s})", users[0].UserID, users[0].Name)
+							message = fmt.Sprintf("%s%s", message, addressString)
+						}
+						var score float32
+						if users[0].People != 0 {
+							score = float32(users[0].Score) / float32(users[0].People)
+						} else {
+							score = 0
+						}
+						tempMessage := fmt.Sprintf("\n⭐Фото оценили на: {%.2f}/10\n👥Оценили {%d} человек", score, users[0].People)
+						message = fmt.Sprintf("%s%s", message, tempMessage)
+						keyboard, _ := keyboards.KeyboardTop.ToJSON()
+						SendPhoto(user.UserID, users[0].Photo, message, keyboard)
+					}
+				case `{"value":"about"}`:
+					{
+						message := `👻 Приветствуем тебя в боте, в котором ты сможешь узнать на сколько оценят твою внешность от 1 до 10, и оценить других.\n\n
+        💡Если у тебя есть какая-нибудь идея для нашего бота, либо ты нашел баг напиши разработчику @lil_chilllll\n\n
+        ⚡️Кстати мы делаем приложение бибинто, чекни: bibinto.com `
+						SendMessage(user.UserID, message, "")
+					}
+				}
+
 			}
 		}
 	case utils.CHANGE_STATE:
 		{
-
+			switch event.Object.Message.Payload {
+			case `"value":"change_name"`:
+				{
+					database.UpdateState(user.UserID, utils.CHANGE_NAME_STATE)
+					SendMessage(user.UserID, "Введите новое имя:", "")
+				}
+			case `"value":"change_photo"`:
+				{
+					database.UpdateState(user.UserID, utils.CHANGE_PHOTO_STATE)
+					SendMessage(user.UserID, "Вы точно хотите сменить фото?", "")
+				}
+			case `"value":"sub"`:
+				{
+					if user.Sub == 1 {
+						SendMessage(user.UserID, "У вас уже есть подписка, вы видите скрытые ссылки на профили людей.", "")
+						return
+					}
+					keyboard, _ := keyboards.KeyboardBuySub.ToJSON()
+					SendMessage(user.UserID, "Цена подписки 100р (месяц)\n\nПри покупке подписки Вы всегда видете ссылки на страницы людей даже когда оцениваете", keyboard)
+				}
+			case `"value":"buy_check"`:
+				{
+					CheckBuySub()
+					SendMessage(user.UserID, "Заглушка", "")
+				}
+			case `"value":"buy"`:
+				{
+					var buyUrl string
+					message := fmt.Sprintf("Перейдите по ссылке, чтобы оплатить подписку\n\nПосле оплаты нажмите кнопку 'Проверить оплату' \n%s", buyUrl)
+					SendMessage(user.UserID, message, "")
+				}
+			case `"value":"account_link"`:
+				{
+					database.UpdateState(user.UserID, utils.CHANGE_ADDRESS_STATE)
+					keyboard, _ := keyboards.KeyboardYesNo.ToJSON()
+					SendMessage(user.UserID, "Показывать ссылку на вашу страницу другим пользователям?", keyboard)
+				}
+			case `"value":"back"`:
+				{
+					my_profile(user, keyboards)
+				}
+			case `"value":"menu"`:
+				{
+					database.UpdateState(user.UserID, utils.MENU_STATE)
+					keyboard, _ := keyboards.KeyboardMain.ToJSON()
+					SendMessage(user.UserID, "Меню:", keyboard)
+				}
+			}
 		}
 	case utils.CHANGE_NAME_STATE:
 		{
@@ -152,4 +281,24 @@ func Handle(event utils.Event, user utils.User, keyboards keyboard.Keyboards) {
 			return
 		}
 	}
+}
+
+func my_profile(user utils.User, keyboards keyboard.Keyboards) {
+	var score float32
+	if user.People != 0 {
+		score = float32(user.Score) / float32(user.People)
+	} else {
+		score = 0
+	}
+	message := fmt.Sprintf("🍀Имя: %s\n\n⭐Ваше фото оценили на: %.2f/10\n👥Вас оценили %d человек", user.Name, score, user.People)
+	if user.Address == 1 {
+		addressString := fmt.Sprintf("\n📎Ссылка на страницу: @id%d(%s)", user.UserID, user.Name)
+		message = fmt.Sprintf("%s %s", message, addressString)
+	}
+	if user.Sub == 1 {
+		message = fmt.Sprintf("%s %s", message, "\n⚡Подписка активна⚡")
+	}
+	database.UpdateState(user.UserID, utils.CHANGE_STATE)
+	keyboard, _ := keyboards.KeyboardProfile.ToJSON()
+	SendPhoto(user.UserID, user.Photo, message, keyboard)
 }
