@@ -115,8 +115,8 @@
         {
           "action": {
             "type": "text",
-            "payload": "{\"value\":\"menu\"}",
-            "label": "Меню"
+            "payload": "{\"value\":\"back\"}",
+            "label": "Назад"
           }
         }
       ]

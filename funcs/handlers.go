@@ -29,7 +29,6 @@ func Handle(event utils.Event, user utils.User, keyboards keyboard.Keyboards) {
 			database.UpdateUser(user)
 			database.UpdateState(user.UserID, utils.PHOTO_STATE)
 			SendMessage(user.UserID, "Теперь отправь фото, которое будут оценивать другие пользователи", "")
-
 		}
 	case utils.PHOTO_STATE:
 		{
@@ -144,17 +143,17 @@ func Handle(event utils.Event, user utils.User, keyboards keyboard.Keyboards) {
 	case utils.CHANGE_STATE:
 		{
 			switch event.Object.Message.Payload {
-			case `"value":"change_name"`:
+			case `{"value":"change_name"}`:
 				{
 					database.UpdateState(user.UserID, utils.CHANGE_NAME_STATE)
 					SendMessage(user.UserID, "Введите новое имя:", "")
 				}
-			case `"value":"change_photo"`:
+			case `{"value":"change_photo"}`:
 				{
 					database.UpdateState(user.UserID, utils.CHANGE_PHOTO_STATE)
 					SendMessage(user.UserID, "Вы точно хотите сменить фото?", "")
 				}
-			case `"value":"sub"`:
+			case `{"value":"sub"}`:
 				{
 					if user.Sub == 1 {
 						SendMessage(user.UserID, "У вас уже есть подписка, вы видите скрытые ссылки на профили людей.", "")
@@ -163,28 +162,28 @@ func Handle(event utils.Event, user utils.User, keyboards keyboard.Keyboards) {
 					keyboard, _ := keyboards.KeyboardBuySub.ToJSON()
 					SendMessage(user.UserID, "Цена подписки 100р (месяц)\n\nПри покупке подписки Вы всегда видете ссылки на страницы людей даже когда оцениваете", keyboard)
 				}
-			case `"value":"buy_check"`:
+			case `{"value":"buy_check"}`:
 				{
 					CheckBuySub()
 					SendMessage(user.UserID, "Заглушка", "")
 				}
-			case `"value":"buy"`:
+			case `{"value":"buy"}`:
 				{
 					var buyUrl string
 					message := fmt.Sprintf("Перейдите по ссылке, чтобы оплатить подписку\n\nПосле оплаты нажмите кнопку 'Проверить оплату' \n%s", buyUrl)
 					SendMessage(user.UserID, message, "")
 				}
-			case `"value":"account_link"`:
+			case `{"value":"account_link"}`:
 				{
 					database.UpdateState(user.UserID, utils.CHANGE_ADDRESS_STATE)
 					keyboard, _ := keyboards.KeyboardYesNo.ToJSON()
 					SendMessage(user.UserID, "Показывать ссылку на вашу страницу другим пользователям?", keyboard)
 				}
-			case `"value":"back"`:
+			case `{"value":"back"}`:
 				{
 					my_profile(user, keyboards)
 				}
-			case `"value":"menu"`:
+			case `{"value":"menu"}`:
 				{
 					database.UpdateState(user.UserID, utils.MENU_STATE)
 					keyboard, _ := keyboards.KeyboardMain.ToJSON()
@@ -194,7 +193,23 @@ func Handle(event utils.Event, user utils.User, keyboards keyboard.Keyboards) {
 		}
 	case utils.CHANGE_NAME_STATE:
 		{
-
+			text := event.Object.Message.Text
+			messageLength := len([]rune(text))
+			if messageLength < 2 || messageLength > 20 {
+				SendMessage(user.UserID, "Слишком маленькое или слишком длинное имя\n\nВведи другое имя", "")
+				return
+			}
+			pattern := `[,%*&^$£~"#';]`
+			re := regexp.MustCompile(pattern)
+			matches := re.MatchString(text)
+			if matches {
+				SendMessage(user.UserID, `Ты используешь запрещенные символы: [,%*&^$£~"#';]\n\Введи другое имя`, "")
+				return
+			}
+			user.Name = text
+			user.State = utils.CHANGE_STATE
+			database.UpdateUser(user)
+			SendMessage(user.UserID, "Имя успешно изменено", "")
 		}
 	case utils.CHANGE_PHOTO_STATE:
 		{
@@ -226,7 +241,34 @@ func Handle(event utils.Event, user utils.User, keyboards keyboard.Keyboards) {
 		}
 	case utils.CHANGE_ADDRESS_STATE:
 		{
-
+			switch event.Object.Message.Payload {
+			case `{"value":"yes"}`:
+				{
+					user.Address = 1
+					user.State = utils.CHANGE_STATE
+					database.UpdateUser(user)
+					keyboard, _ := keyboards.KeyboardProfile.ToJSON()
+					SendMessage(user.UserID, "Теперь ваша ссылка ВИДНА другим пользователям.", keyboard)
+				}
+			case `{"value":"no"}`:
+				{
+					user.Address = 0
+					user.State = utils.CHANGE_STATE
+					database.UpdateUser(user)
+					keyboard, _ := keyboards.KeyboardProfile.ToJSON()
+					SendMessage(user.UserID, "Теперь ваша ссылка НЕ ВИДНА другим пользователям.", keyboard)
+				}
+			case `{"value":"back"}`:
+				{
+					my_profile(user, keyboards)
+				}
+			case `{"value":"menu"}`:
+				{
+					database.UpdateState(user.UserID, utils.MENU_STATE)
+					keyboard, _ := keyboards.KeyboardMain.ToJSON()
+					SendMessage(user.UserID, "Меню:", keyboard)
+				}
+			}
 		}
 	case utils.GO_UNBAN_STATE:
 		{
