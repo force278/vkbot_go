@@ -110,6 +110,7 @@ func main() {
 	database.Connect()
 	defer database.Disconnect()
 	database.AddStateColumnIfNotExists()
+	database.AddRecUserColumnIfNotExists()
 
 	if err := keyboards.FromJSON(); err != nil {
 		fmt.Println("Ошибка чтения keyboard.json: ", err)

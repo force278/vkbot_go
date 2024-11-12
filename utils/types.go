@@ -103,6 +103,7 @@ type User struct {
 	Sub         int
 	LastMessage time.Time
 	State       int
+	RecUser     uint
 }
 
 type Grade struct {

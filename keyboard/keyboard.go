@@ -2,6 +2,7 @@ package keyboard
 
 import (
 	"encoding/json"
+	"fmt"
 	"os"
 )
 
@@ -60,6 +61,11 @@ type Action struct {
 	Link    string `json:"link,omitempty"`
 }
 
+type PayloadData struct {
+	UserID int    `json:"user_id,omitempty"`
+	Value  string `json:"value"`
+}
+
 // NewKeyboard создает новую клавиатуру
 func NewKeyboard(oneTime bool, inline bool) *Keyboard {
 	return &Keyboard{
@@ -84,6 +90,50 @@ func (k *Keyboard) AddButton(label string, buttonType string, color string) {
 // AddRow добавляет ряд кнопок на клавиатуру
 func (k *Keyboard) AddRow(buttons ...Button) {
 	k.Buttons = append(k.Buttons, buttons)
+}
+
+// AddToPayload добавляет ключ-значение в payload кнопки
+func (b *Button) AddToPayload(key string, value interface{}) error {
+	// Если payload пустой, создаем новый мап
+	if b.Action.Payload == "" {
+		b.Action.Payload = "{}"
+	}
+
+	// Создаем временную структуру для работы с JSON
+	var payloadMap map[string]interface{}
+	err := json.Unmarshal([]byte(b.Action.Payload), &payloadMap)
+	if err != nil {
+		return err
+	}
+
+	// Добавляем новый ключ-значение в мапу
+	payloadMap[key] = value
+
+	// Сериализуем обратно в JSON
+	updatedPayload, err := json.Marshal(payloadMap)
+	if err != nil {
+		return err
+	}
+
+	// Обновляем поле Payload
+	b.Action.Payload = string(updatedPayload)
+	return nil
+}
+
+// ReadFromPayload считывает данные из payload в структуру PayloadData
+func (b *Button) ReadFromPayload() (PayloadData, error) {
+	var data PayloadData
+
+	if b.Action.Payload == "" {
+		return data, fmt.Errorf("payload is empty")
+	}
+
+	err := json.Unmarshal([]byte(b.Action.Payload), &data)
+	if err != nil {
+		return data, err
+	}
+
+	return data, nil
 }
 
 // ToJSON преобразует клавиатуру в JSON формат

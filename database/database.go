@@ -63,7 +63,8 @@ func CreateDatabaseAndTables() error {
 			address TEXT,
 			sub TEXT,
 			lastmessage TIMESTAMP,
-			state INT DEFAULT 0
+			state INT DEFAULT 0,
+			recuser BIGINT DEFAULT 0
 		);`,
 		`CREATE TABLE IF NOT EXISTS stack (
 			id SERIAL PRIMARY KEY,
@@ -129,6 +130,39 @@ func AddStateColumnIfNotExists() error {
 	return nil
 }
 
+func AddRecUserColumnIfNotExists() error {
+	if DB == nil {
+		return fmt.Errorf("database connection is not established")
+	}
+	// Проверяем, существует ли колонка 'state' в таблице 'bibinto'
+	var exists bool
+	query := `
+		SELECT EXISTS (
+			SELECT 1 
+			FROM information_schema.columns 
+			WHERE table_name='bibinto' AND column_name='recuser'
+		);
+	`
+	err := DB.QueryRow(context.Background(), query).Scan(&exists)
+	if err != nil {
+		log.Printf("Ошибка при проверке существования колонки: %v\n", err)
+		return err
+	}
+	// Если колонка не существует, добавляем ее
+	if !exists {
+		alterQuery := `ALTER TABLE bibinto ADD COLUMN recuser bigint default 0;`
+		_, err := DB.Exec(context.Background(), alterQuery)
+		if err != nil {
+			fmt.Printf("Ошибка при добавлении колонки: %v\n", err)
+			return err
+		}
+		fmt.Println("Колонка 'recuser' успешно добавлена в таблицу 'bibinto'")
+	} else {
+		fmt.Println("Колонка 'recuser' уже существует в таблице 'bibinto'")
+	}
+	return nil
+}
+
 // Возвращает пользователя, флаг - есть ли юзер в бд и ошибку
 func GetUser(userid uint) (utils.User, bool, error) {
 	if DB == nil {
@@ -147,7 +181,7 @@ func GetUser(userid uint) (utils.User, bool, error) {
 	// Проверяем, есть ли строки в результате
 	if rows.Next() {
 		// Если строки есть, сканируем их
-		if err := rows.Scan(&user.ID, &user.UserID, &Name, &Photo, &Score, &People, &Active, &Ban, &Admin, &Address, &Sub, &LastMessage, &State); err != nil {
+		if err := rows.Scan(&user.ID, &user.UserID, &Name, &Photo, &Score, &People, &Active, &Ban, &Admin, &Address, &Sub, &LastMessage, &State, &user.RecUser); err != nil {
 			return utils.User{}, false, fmt.Errorf("failed to scan row: %v", err)
 		}
 		if Name.Valid {
@@ -198,13 +232,13 @@ func AddUser(userid uint) (uint, error) {
 		return 0, fmt.Errorf("database connection is not established")
 	}
 	query := `
-	INSERT INTO bibinto (userid, name, photo, score, people, ban, address, admin, sub, lastmessage, state)
-	VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+	INSERT INTO bibinto (userid, name, photo, score, people, ban, address, admin, sub, lastmessage, state, recuser)
+	VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
 	RETURNING id
 `
 	// Выполнение запроса
 	var id uint
-	err := DB.QueryRow(context.Background(), query, user.UserID, user.Name, user.Photo, user.Score, user.People, user.Ban, user.Address, user.Admin, user.Sub, user.LastMessage, user.State).Scan(&id)
+	err := DB.QueryRow(context.Background(), query, user.UserID, user.Name, user.Photo, user.Score, user.People, user.Ban, user.Address, user.Admin, user.Sub, user.LastMessage, user.State, user.RecUser).Scan(&id)
 	if err != nil {
 		return 0, fmt.Errorf("failed to insert user: %w", err)
 	}
@@ -230,8 +264,9 @@ func UpdateUser(user utils.User) error {
 			admin = COALESCE($7, admin),
 			sub = COALESCE($8, sub),
 			lastmessage = COALESCE($9, lastmessage),
-			state = COALESCE($10, state)
-		WHERE id = $11
+			state = COALESCE($10, state),
+			recuser = COALESCE($11, recuser)
+		WHERE id = $12
 	`
 
 	// Выполнение запроса
@@ -246,6 +281,7 @@ func UpdateUser(user utils.User) error {
 		user.Sub,
 		user.LastMessage,
 		user.State,
+		user.RecUser,
 		user.ID,
 	)
 	if err != nil {
@@ -256,21 +292,21 @@ func UpdateUser(user utils.User) error {
 
 func GetRec(userid uint) (utils.User, bool, error) {
 	if DB == nil {
-		return utils.User{}, false, fmt.Errorf("Database connection is not established")
+		return utils.User{}, false, fmt.Errorf("database connection is not established")
 	}
 
 	query := fmt.Sprintf("SELECT * FROM bibinto WHERE UserID = (SELECT UserID FROM stack WHERE UserID NOT IN (SELECT UserID FROM history WHERE ValuerID = %d) AND UserID <> %d ORDER BY id DESC LIMIT 1)", userid, userid)
 
 	rows, err := DB.Query(context.Background(), query)
 	if err != nil {
-		return utils.User{}, false, fmt.Errorf("Ошибка выполнения запроса GetRec: %v", err)
+		return utils.User{}, false, fmt.Errorf("ошибка выполнения запроса GetRec: %v", err)
 	}
 	defer rows.Close() // Закрываем rows после завершения работы с ними
 
 	var user utils.User
 	if rows.Next() {
-		if err := rows.Scan(&user.ID, &user.UserID, &user.Name, &user.Photo, &user.Score, &user.People, &user.Active, &user.Ban, &user.Admin, &user.Address, &user.Sub, &user.LastMessage, &user.State); err != nil {
-			return utils.User{}, false, fmt.Errorf("Failed to scan row: %v", err)
+		if err := rows.Scan(&user.ID, &user.UserID, &user.Name, &user.Photo, &user.Score, &user.People, &user.Active, &user.Ban, &user.Admin, &user.Address, &user.Sub, &user.LastMessage, &user.State, &user.RecUser); err != nil {
+			return utils.User{}, false, fmt.Errorf("failed to scan row: %v", err)
 		}
 	} else {
 		// Если нет строк, значит пользователь не найден
@@ -279,7 +315,7 @@ func GetRec(userid uint) (utils.User, bool, error) {
 
 	// Проверка на ошибки после обхода строк
 	if err := rows.Err(); err != nil {
-		return utils.User{}, false, fmt.Errorf("Error occurred during rows iteration: %v", err)
+		return utils.User{}, false, fmt.Errorf("error occurred during rows iteration: %v", err)
 	}
 
 	return user, true, nil
