@@ -160,7 +160,8 @@ func Handle(event utils.Event, user utils.User, keyboards keyboard.Keyboards) {
 			case `{"value":"change_photo"}`:
 				{
 					database.UpdateState(user.UserID, utils.CHANGE_PHOTO_STATE)
-					SendMessage(user.UserID, "Вы точно хотите сменить фото?", "")
+					keyboard, _ := keyboards.KeyboardYesNo.ToJSON()
+					SendMessage(user.UserID, "Вы точно хотите сменить фото?", keyboard)
 				}
 			case `{"value":"sub"}`:
 				{
@@ -231,6 +232,16 @@ func Handle(event utils.Event, user utils.User, keyboards keyboard.Keyboards) {
 			case `{"value":"no"}`:
 				{
 					my_profile(user, keyboards)
+				}
+			case `{"value":"back"}`:
+				{
+					my_profile(user, keyboards)
+				}
+			case `{"value":"menu"}`:
+				{
+					database.UpdateState(user.UserID, utils.MENU_STATE)
+					keyboard, _ := keyboards.KeyboardMain.ToJSON()
+					SendMessage(user.UserID, "Меню:", keyboard)
 				}
 			default:
 				{
@@ -385,7 +396,7 @@ func Handle(event utils.Event, user utils.User, keyboards keyboard.Keyboards) {
 				{
 					goGrade(user, keyboards, "")
 				}
-				SendMessage(config.AppConfig.reportAdmin, adminMessage, "")
+				SendMessage(config.AppConfig.ReportAdmin, adminMessage, "")
 				goGrade(user, keyboards, "Спасибо за жалобу, мы рассмотрим его в ближайшее время!")
 			}
 
@@ -549,11 +560,174 @@ func Handle(event utils.Event, user utils.User, keyboards keyboard.Keyboards) {
 		}
 	case utils.GO_MESSAGE_STATE:
 		{
+			switch event.Object.Message.Payload {
+			case `{"value":"back"}`:
+				{
+					rec_user, _, _ := database.GetUser(user.RecUser)
+					var message string
+					if user.Sub == 1 {
+						addressString := fmt.Sprintf("\n📎Ссылка на страницу: @id%d(%s)", rec_user.UserID, "Ссылка")
+						message = fmt.Sprintf("%s %s", message, addressString)
+					}
+					var keyboard string
+					if user.Admin == 1 {
+						keyboard, _ = keyboards.KeyboardGradeModer.ToJSON()
+					} else {
+						keyboard, _ = keyboards.KeyboardGrade.ToJSON()
+					}
+					user.RecUser = rec_user.UserID
+					user.State = utils.GO_STATE
+					database.UpdateUser(user)
+					SendPhoto(user.UserID, rec_user.Photo, message, keyboard)
+				}
+			default:
+				{
+					if len(event.Object.Message.Text) > 100 {
+						SendMessage(user.UserID, "Сообщение слишком длинное.\nНапиши меньше 100 символов.", "")
+						return
+					}
+					if len(event.Object.Message.Text) < 2 {
+						SendMessage(user.UserID, "Сообщение слишком короткое.\nНапиши что-нибудь поинтереснее.", "")
+						return
+					}
+					user.State = utils.GO_MESSAGE_GRADE_STATE
+					user.RecMess = event.Object.Message.Text
+					database.UpdateUser(user)
+					var keyboard string
+					if user.Admin == 1 {
+						keyboard, _ = keyboards.KeyboardGradeModer.ToJSON()
+					} else {
+						keyboard, _ = keyboards.KeyboardGrade.ToJSON()
+					}
 
+					SendMessage(user.UserID, "Хорошо, теперь поставь оценку", keyboard)
+				}
+			}
 		}
 	case utils.GO_MESSAGE_GRADE_STATE:
 		{
-
+			switch event.Object.Message.Payload {
+			case `{"value":"back"}`:
+				{
+					rec_user, _, _ := database.GetUser(user.RecUser)
+					var message string
+					if user.Sub == 1 {
+						addressString := fmt.Sprintf("\n📎Ссылка на страницу: @id%d(%s)", rec_user.UserID, "Ссылка")
+						message = fmt.Sprintf("%s %s", message, addressString)
+					}
+					var keyboard string
+					if user.Admin == 1 {
+						keyboard, _ = keyboards.KeyboardGradeModer.ToJSON()
+					} else {
+						keyboard, _ = keyboards.KeyboardGrade.ToJSON()
+					}
+					user.RecUser = rec_user.UserID
+					user.State = utils.GO_STATE
+					database.UpdateUser(user)
+					SendPhoto(user.UserID, rec_user.Photo, message, keyboard)
+				}
+			case `{"value":"grade_report"}`:
+				{
+					database.UpdateState(user.UserID, utils.COMPLAINT_STATE)
+					keyboard, _ := keyboards.KeyboardReportChoose.ToJSON()
+					SendMessage(user.UserID, "Введите причину жалобы текстом!\nИли выберите из предложенного", keyboard)
+				}
+			case `{"value":"grade_ban"}`:
+				{
+					if user.Admin != 1 {
+						database.UpdateState(user.UserID, utils.MENU_STATE)
+						keyboard, _ := keyboards.KeyboardMain.ToJSON()
+						SendMessage(user.UserID, "Ты не админ, чтобы банить", keyboard)
+						return
+					}
+					database.Ban(user.RecUser)
+					message := fmt.Sprintf("Предыдущий пользователь забанен!\nЕго id: %d\n\n📎Ссылка на страницу: @id%d(%s)", user.RecUser, user.RecUser, "Профиль")
+					rec_user, recExists, err := database.GetRec(user.UserID)
+					if err != nil {
+						fmt.Printf("Ошибка в MENU_STATE go_grade %s", err)
+						return
+					}
+					if !recExists {
+						keyboard, _ := keyboards.KeyboardMain.ToJSON()
+						SendMessage(user.UserID, "Больше нет людей для оценки, подождите пока появятся новые пользователи.\n\nМеню:", keyboard)
+						return
+					}
+					if user.Sub == 1 {
+						addressString := fmt.Sprintf("\n\n📎Ссылка на страницу: @id%d(%s)", rec_user.UserID, rec_user.Name)
+						message = fmt.Sprintf("%s %s", message, addressString)
+					}
+					var keyboard string
+					if user.Admin == 1 {
+						keyboard, _ = keyboards.KeyboardGradeModer.ToJSON()
+					} else {
+						keyboard, _ = keyboards.KeyboardGrade.ToJSON()
+					}
+					user.RecUser = rec_user.UserID
+					user.State = utils.GO_STATE
+					database.UpdateUser(user)
+					SendPhoto(user.UserID, rec_user.Photo, message, keyboard)
+				}
+			case `{"value":"grade_message"}`:
+				{
+					SendMessage(user.UserID, "Ты уже написал комментарий к оценке, поставь оценку", "")
+				}
+			case `{"value":"menu"}`:
+				{
+					database.UpdateState(user.UserID, utils.MENU_STATE)
+					keyboard, _ := keyboards.KeyboardMain.ToJSON()
+					SendMessage(user.UserID, "Меню:", keyboard)
+				}
+			case `{"value":"grade_1"}`:
+				{
+					createGrade(1, user, user.RecMess)
+					goGrade(user, keyboards, "")
+				}
+			case `{"value":"grade_2"}`:
+				{
+					createGrade(2, user, user.RecMess)
+					goGrade(user, keyboards, "")
+				}
+			case `{"value":"grade_3"}`:
+				{
+					createGrade(3, user, user.RecMess)
+					goGrade(user, keyboards, "")
+				}
+			case `{"value":"grade_4"}`:
+				{
+					createGrade(4, user, user.RecMess)
+					goGrade(user, keyboards, "")
+				}
+			case `{"value":"grade_5"}`:
+				{
+					createGrade(5, user, user.RecMess)
+					goGrade(user, keyboards, "")
+				}
+			case `{"value":"grade_6"}`:
+				{
+					createGrade(6, user, user.RecMess)
+					goGrade(user, keyboards, "")
+				}
+			case `{"value":"grade_7"}`:
+				{
+					createGrade(7, user, user.RecMess)
+					goGrade(user, keyboards, "")
+				}
+			case `{"value":"grade_8"}`:
+				{
+					createGrade(8, user, user.RecMess)
+					goGrade(user, keyboards, "")
+				}
+			case `{"value":"grade_9"}`:
+				{
+					createGrade(9, user, user.RecMess)
+					goGrade(user, keyboards, "")
+				}
+			case `{"value":"grade_10"}`:
+				{
+					createGrade(10, user, user.RecMess)
+					goGrade(user, keyboards, "")
+				}
+			}
 		}
 	default:
 		{

@@ -104,6 +104,7 @@ type User struct {
 	LastMessage time.Time
 	State       int
 	RecUser     uint
+	RecMess     string
 }
 
 type Grade struct {

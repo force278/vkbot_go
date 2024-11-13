@@ -14,7 +14,7 @@ type Config struct {
 	DbPassword  string `json:"dbPassword"`
 	DbHost      string `json:"dbHost"`
 	DbPort      uint16 `json:"dbPort"`
-	reportAdmin uint   `json:"reportAdmin"`
+	ReportAdmin uint   `json:"reportAdmin"`
 }
 
 var AppConfig Config
