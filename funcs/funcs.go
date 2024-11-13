@@ -27,13 +27,18 @@ func SendMessage(userID uint, message string, keyboard string) {
 
 	res, err := http.PostForm("https://api.vk.com/method/messages.send", params)
 	if err != nil {
-		fmt.Println("Ошибка отправки сообщения: ", err)
+		fmt.Println("Ошибка отправки сообщения:", err)
+		return
 	}
-	if res.StatusCode != 200 {
-		fmt.Println("Ошибка SendMessage: ", res.StatusCode)
+	defer res.Body.Close() // Закрываем тело ответа после обработки
+
+	if res.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(res.Body) // Читаем тело ответа для диагностики
+		fmt.Printf("Ошибка SendMessage: %d, ответ: %s\n", res.StatusCode, string(body))
 	}
 }
 
+// Отправка фотографии пользователю
 func SendPhoto(userID uint, photo string, message string, keyboard string) {
 	params := url.Values{}
 	params.Set("access_token", config.AppConfig.Token)
@@ -55,8 +60,6 @@ func SendPhoto(userID uint, photo string, message string, keyboard string) {
 
 	body, _ := io.ReadAll(res.Body) // Читаем тело ответа для диагностики
 	fmt.Println("Ответ от сервера:", string(body))
-
-	// Здесь можно добавить обработку успешного ответа, если это необходимо
 }
 
 // Получение URL загрузки для фотографий
@@ -86,6 +89,7 @@ func GetUploadServer() string {
 	return result.Response.UploadURL
 }
 
+// Сохранение загруженной фотографии
 func SavePhoto(uploadResult struct {
 	Photo  string `json:"photo"`
 	Server int    `json:"server"`
@@ -130,14 +134,14 @@ func SavePhoto(uploadResult struct {
 
 	if len(saveResult.Response) > 0 {
 		photo := saveResult.Response[0]
-		photo_string := fmt.Sprintf("photo%d_%d_%s", photo.OwnerID, photo.ID, photo.AccessKey)
-		return photo_string
-	} else {
-		fmt.Println("Ошибка: сохраненная фотография отсутствует в ответе.")
-		return ""
+		return fmt.Sprintf("photo%d_%d_%s", photo.OwnerID, photo.ID, photo.AccessKey)
 	}
+
+	fmt.Println("Ошибка: сохраненная фотография отсутствует в ответе.")
+	return ""
 }
 
+// Загрузка фотографии на сервер
 func UploadPhoto(uploadURL string, photo utils.Photo, userID uint) string {
 	// Получаем файл фотографии
 	fileResp, err := http.Get(photo.Sizes[len(photo.Sizes)-1].URL) // Получаем URL фотографии
@@ -157,16 +161,15 @@ func UploadPhoto(uploadURL string, photo utils.Photo, userID uint) string {
 		fmt.Println("Ошибка создания формы:", err)
 		return ""
 	}
+
 	// Копируем содержимое файла в часть формы
-	_, err = io.Copy(part, fileResp.Body)
-	if err != nil {
+	if _, err = io.Copy(part, fileResp.Body); err != nil {
 		fmt.Println("Ошибка копирования файла:", err)
 		return ""
 	}
 
 	// Закрываем writer, чтобы завершить формирование запроса
-	err = writer.Close()
-	if err != nil {
+	if err = writer.Close(); err != nil {
 		fmt.Println("Ошибка закрытия writer:", err)
 		return ""
 	}
@@ -206,6 +209,7 @@ func UploadPhoto(uploadURL string, photo utils.Photo, userID uint) string {
 	return SavePhoto(uploadResult, userID)
 }
 
+// Проверка покупки подписки (пока не реализовано)
 func CheckBuySub() {
-
+	// Реализация проверки покупки подписки
 }

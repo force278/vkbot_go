@@ -29,12 +29,17 @@ func LoggingMiddleware(next http.Handler) http.Handler {
 		body, err := io.ReadAll(r.Body)
 		if err != nil {
 			http.Error(w, "Error reading body", http.StatusBadRequest)
-			fmt.Println(err)
+			log.Println("Error reading body:", err)
 			return
 		}
+		defer r.Body.Close() // Закрываем тело запроса после чтения
 
 		// Десериализация тела в структуру event
-		event.GetStruct(body, &event)
+		if err := event.GetStruct(body, &event); err != nil {
+			http.Error(w, "Error parsing event", http.StatusBadRequest)
+			log.Println("Error parsing event:", err)
+			return
+		}
 
 		// Логируем информацию о запросе
 		log.Printf("Received request: %+v", event)
@@ -42,47 +47,41 @@ func LoggingMiddleware(next http.Handler) http.Handler {
 		var user utils.User
 		var userID uint
 
-		if event.Type == "message_new" {
+		// Обработка разных типов событий
+		switch event.Type {
+		case "message_new":
 			userID = event.Object.Message.FromID
-			var userExist bool
-			user, userExist, err = database.GetUser(userID)
-			if err != nil {
-				fmt.Printf("Произошла ошибка в Middleware GetUser: %s \n", err)
-				return
-			}
-			if !userExist { // Пользователя нет в бд
-				newID, err := database.AddUser(userID)
-				if err != nil {
-					fmt.Printf("Произошла ошибка в Middleware AddUser: %s \n", err)
-					return
-				}
-				user.UserID = userID // Это все что мы знаем о новом пользователе
-				user.ID = newID
-			}
-		}
-		if event.Type == "message_deny" || event.Type == "message_allow" {
+		case "message_deny", "message_allow":
 			userID = event.Object.Userid
-			var userExist bool
-			user, userExist, err = database.GetUser(userID)
+		default:
+			http.Error(w, "Unsupported event type", http.StatusBadRequest)
+			return
+		}
+
+		// Получаем пользователя из базы данных
+		var userExist bool
+		user, userExist, err = database.GetUser(userID)
+		if err != nil {
+			log.Printf("Error in Middleware Get:User  %s \n", err)
+			return
+		}
+		if !userExist { // Пользователя нет в БД
+			newID, err := database.AddUser(userID)
 			if err != nil {
-				fmt.Printf("Произошла ошибка в Middleware GetUser: %s \n", err)
+				log.Printf("Error in Middleware Add:User  %s \n", err)
 				return
 			}
-			if !userExist { // Пользователя нет в бд
-				newID, err := database.AddUser(userID)
-				if err != nil {
-					fmt.Printf("Произошла ошибка в Middleware AddUser: %s \n", err)
-					return
-				}
-				user.UserID = userID // Это все что мы знаем о новом пользователе
-				user.ID = newID
-			}
+			user.UserID = userID // Это все, что мы знаем о новом пользователе
+			user.ID = newID
 		}
-		fmt.Printf("%+v\n", user)
-		// Проверяем запрос
+
+		log.Printf("User  info: %+v\n", user)
+
+		// Проверяем, забанен ли пользователь
 		if user.Ban == 1 {
 			return
 		}
+
 		// Добавляем event в контекст
 		ctx := context.WithValue(r.Context(), eventContextKey, event)
 		ctx = context.WithValue(ctx, userContextKey, user)
@@ -103,7 +102,7 @@ func main() {
 	log.SetOutput(file) // Устанавливаем вывод в файл
 	// Загружаем конфигурацию
 	if err := config.LoadConfig(&config.AppConfig); err != nil {
-		fmt.Println("Ошибка загрузки конфигурации:", err)
+		log.Println("Ошибка загрузки конфигурации:", err)
 		return
 	}
 
@@ -111,18 +110,19 @@ func main() {
 	defer database.Disconnect()
 	database.AddStateColumnIfNotExists()
 	database.AddRecUserColumnIfNotExists()
+	database.AddRecMessColumnIfNotExists()
 
 	if err := keyboards.FromJSON(); err != nil {
-		fmt.Println("Ошибка чтения keyboard.json: ", err)
+		log.Println("Ошибка чтения keyboard.json: ", err)
 	}
 
 	// Получаем обновления от ВК
 	go func() {
 		// Создаем новый маршрутизатор
 		mux := http.NewServeMux()
-		loggedMux := LoggingMiddleware(mux)
 		mux.HandleFunc("/callback", callbackHandler)
-		fmt.Println("Сервер запущен на порту 8080")
+		loggedMux := LoggingMiddleware(mux)
+		log.Println("Сервер запущен на порту 8080")
 		if err := http.ListenAndServe(":8080", loggedMux); err != nil {
 			log.Fatal(err)
 		}
@@ -139,13 +139,14 @@ func callbackHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	user, ok := r.Context().Value(userContextKey).(utils.User)
 	if !ok {
-		http.Error(w, "No event found in context", http.StatusInternalServerError)
+		http.Error(w, "No user found in context", http.StatusInternalServerError)
 		return
 	}
 
 	switch event.Type {
 	case "message_new":
 		funcs.Handle(event, user, keyboards)
+		// Обработка вложений, если необходимо
 		/*
 			if len(event.Object.Message.Attachments) > 0 {
 				attachment := event.Object.Message.Attachments[0]
@@ -158,14 +159,15 @@ func callbackHandler(w http.ResponseWriter, r *http.Request) {
 			}
 		*/
 	case "message_deny":
-
+		// Обработка события deny
 	case "message_allow":
-
+		// Обработка события allow
 	case "confirmation":
-
+		// Обработка события confirmation
 	default:
-
+		// Обработка неизвестного события
 	}
+
 	w.WriteHeader(http.StatusOK)
 	fmt.Fprint(w, "ok")
 }
