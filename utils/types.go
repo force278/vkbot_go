@@ -105,6 +105,7 @@ type User struct {
 	State       int
 	RecUser     uint
 	RecMess     string
+	About       string
 }
 
 type Grade struct {

@@ -64,7 +64,8 @@ func CreateDatabaseAndTables() error {
 			lastmessage TIMESTAMP,
 			state INT DEFAULT 0,
 			recuser BIGINT DEFAULT 0,
-			recmess TEXT 
+			recmess TEXT,
+			about TEXT
 		);`,
 		`CREATE TABLE IF NOT EXISTS stack (
 			id SERIAL PRIMARY KEY,
@@ -108,10 +109,10 @@ func GetUser(userid uint) (utils.User, bool, error) {
 
 	var user utils.User
 	var Score, People, Active, Ban, Admin, Address, Sub, State sql.NullInt32
-	var Name, Photo, RecMess sql.NullString
+	var Name, Photo, RecMess, About sql.NullString
 	var LastMessage sql.NullTime
 
-	if err := row.Scan(&user.ID, &user.UserID, &Name, &Photo, &Score, &People, &Active, &Ban, &Admin, &Address, &Sub, &LastMessage, &State, &user.RecUser, &RecMess); err != nil {
+	if err := row.Scan(&user.ID, &user.UserID, &Name, &Photo, &Score, &People, &Active, &Ban, &Admin, &Address, &Sub, &LastMessage, &State, &user.RecUser, &RecMess, &About); err != nil {
 		if err == sql.ErrNoRows {
 			return utils.User{}, false, nil // Пользователь не найден
 		}
@@ -127,6 +128,9 @@ func GetUser(userid uint) (utils.User, bool, error) {
 	}
 	if RecMess.Valid {
 		user.RecMess = RecMess.String
+	}
+	if RecMess.Valid {
+		user.About = About.String
 	}
 	if Score.Valid {
 		user.Score = int(Score.Int32)
@@ -163,12 +167,12 @@ func AddUser(userid uint) (uint, error) {
 	}
 
 	query := `
-	INSERT INTO bibinto (userid, name, photo, score, people, ban, address, admin, sub, lastmessage, state, recuser, recmess)
-	VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
+	INSERT INTO bibinto (userid, name, photo, score, people, ban, address, admin, sub, lastmessage, state, recuser, recmess, about)
+	VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
 	RETURNING id
 `
 	var id uint
-	err := DB.QueryRow(context.Background(), query, userid, "", "", 0, 0, false, 0, false, "", time.Now(), 0, 0, "").Scan(&id)
+	err := DB.QueryRow(context.Background(), query, userid, "", "", 0, 0, false, 0, false, "", time.Now(), 0, 0, "", "").Scan(&id)
 	if err != nil {
 		return 0, fmt.Errorf("failed to insert user: %w", err)
 	}
@@ -195,8 +199,9 @@ func UpdateUser(user utils.User) error {
 			lastmessage = COALESCE($9, lastmessage),
 			state = COALESCE($10, state),
 			recuser = COALESCE($11, recuser),
-			recmess = COALESCE($12, recmess)
-		WHERE id = $13
+			recmess = COALESCE($12, recmess),
+			about = COALESCE($13, about)
+		WHERE id = $14
 	`
 
 	_, err := DB.Exec(context.Background(), query,
@@ -212,6 +217,7 @@ func UpdateUser(user utils.User) error {
 		user.State,
 		user.RecUser,
 		user.RecMess,
+		user.About,
 		user.ID,
 	)
 	if err != nil {
@@ -239,10 +245,10 @@ func GetRec(userid uint) (utils.User, bool, error) {
 
 	var user utils.User
 	var Score, People, Active, Ban, Admin, Address, Sub, State sql.NullInt32
-	var Name, Photo, RecMess sql.NullString
+	var Name, Photo, RecMess, About sql.NullString
 	var LastMessage sql.NullTime
 
-	if err := row.Scan(&user.ID, &user.UserID, &Name, &Photo, &Score, &People, &Active, &Ban, &Admin, &Address, &Sub, &LastMessage, &State, &user.RecUser, &RecMess); err != nil {
+	if err := row.Scan(&user.ID, &user.UserID, &Name, &Photo, &Score, &People, &Active, &Ban, &Admin, &Address, &Sub, &LastMessage, &State, &user.RecUser, &RecMess, &About); err != nil {
 		if err == sql.ErrNoRows {
 			return utils.User{}, false, nil // Пользователь не найден
 		}
@@ -258,6 +264,9 @@ func GetRec(userid uint) (utils.User, bool, error) {
 	}
 	if RecMess.Valid {
 		user.RecMess = RecMess.String
+	}
+	if About.Valid {
+		user.About = About.String
 	}
 	if Score.Valid {
 		user.Score = int(Score.Int32)
@@ -397,32 +406,60 @@ func GetGrades(userid uint) ([]utils.Grade, error) {
 	if DB == nil {
 		return nil, fmt.Errorf("database connection is not established")
 	}
-
-	query := `SELECT grades.id, grades.userid, grades.valuerid, grades.grade, grades.message 
-	FROM grades 
-	JOIN bibinto ON grades.valuerid = bibinto.userid 
-	WHERE grades.userid = $1 
-	ORDER BY grades.message LIMIT 5`
-
-	rows, err := DB.Query(context.Background(), query, userid)
+	// Начинаем транзакцию
+	tx, err := DB.Begin(context.Background())
 	if err != nil {
-		log.Printf("Ошибка выполнения запроса на получение оценок: %v\n", err)
+		fmt.Printf("Ошибка при начале транзакции: %v\n", err)
+		return nil, err
+	}
+	defer tx.Rollback(context.Background()) // Откат транзакции в случае ошибки
+	// Получаем пять последних оценок
+	query := `SELECT grades.id, grades.userid, grades.valuerid, grades.grade, grades.message 
+FROM grades 
+JOIN bibinto ON grades.valuerid = bibinto.userid 
+WHERE grades.userid = $1 
+ORDER BY grades.message LIMIT 5`
+	rows, err := tx.Query(context.Background(), query, userid)
+	if err != nil {
+		fmt.Printf("Ошибка выполнения запроса на получение оценок: %v\n", err)
 		return nil, err
 	}
 	defer rows.Close()
 
 	var grades []utils.Grade
+	var ids []uint // Для хранения ID оценок, которые нужно удалить
 	for rows.Next() {
 		var g utils.Grade
 		if err := rows.Scan(&g.ID, &g.UserID, &g.ValuerID, &g.Grade, &g.Message); err != nil {
-			log.Printf("Ошибка при сканировании строки: %v\n", err)
+			fmt.Printf("Ошибка при сканировании строки: %v\n", err)
 			return nil, err
 		}
 		grades = append(grades, g)
+		ids = append(ids, g.ID) // Сохраняем ID для удаления
 	}
 
-	if err := rows.Err(); err != nil {
-		log.Printf("Ошибка при итерации по строкам: %v\n", err)
+	// Удаляем полученные оценки, если они есть
+	if len(ids) > 0 {
+		// Формируем строку запроса на удаление с правильным количеством параметров
+		deleteQuery := "DELETE FROM grades WHERE id IN ("
+		for i := range ids {
+			if i > 0 {
+				deleteQuery += ", "
+			}
+			deleteQuery += fmt.Sprintf("$%d", i+1) // Параметры начинаются с $1
+		}
+		deleteQuery += ")"
+
+		// Выполняем удаление оценок
+		if _, err := tx.Exec(context.Background(), deleteQuery, ids); err != nil {
+			fmt.Printf("Ошибка при удалении оценок: %v\n", err)
+			return nil, err
+		}
+	}
+
+	// Подтверждаем транзакцию
+	if err := tx.Commit(context.Background()); err != nil {
+		fmt.Printf("Ошибка при подтверждении транзакции: %v\n", err)
 		return nil, err
 	}
 
@@ -444,13 +481,13 @@ func Top() ([]utils.User, error) {
 	defer rows.Close()
 
 	var Score, People, Active, Ban, Admin, Address, Sub, State sql.NullInt32
-	var Name, Photo, RecMess sql.NullString
+	var Name, Photo, RecMess, About sql.NullString
 	var LastMessage sql.NullTime
 
 	var topUsers []utils.User
 	for rows.Next() {
 		var user utils.User
-		if err := rows.Scan(&user.ID, &user.UserID, &Name, &Photo, &Score, &People, &Active, &Ban, &Admin, &Address, &Sub, &LastMessage, &State, &user.RecUser, &RecMess); err != nil {
+		if err := rows.Scan(&user.ID, &user.UserID, &Name, &Photo, &Score, &People, &Active, &Ban, &Admin, &Address, &Sub, &LastMessage, &State, &user.RecUser, &RecMess, &About); err != nil {
 			log.Printf("Ошибка при сканировании строки: %v\n", err)
 			return nil, err
 		}
@@ -463,6 +500,9 @@ func Top() ([]utils.User, error) {
 		}
 		if RecMess.Valid {
 			user.RecMess = RecMess.String
+		}
+		if About.Valid {
+			user.About = About.String
 		}
 		if Score.Valid {
 			user.Score = int(Score.Int32)
@@ -619,6 +659,21 @@ func UpdateState(userid uint, state int) error {
 	return nil // Успешное обновление
 }
 
+func DeleteAbout(userid uint) error {
+	if DB == nil {
+		return fmt.Errorf("database connection is not established")
+	}
+
+	// SQL-запрос для обновления поля LastMessage
+	query := `UPDATE bibinto SET about = $1 WHERE userID = $2`
+	_, err := DB.Exec(context.Background(), query, "", userid)
+	if err != nil {
+		return err // Возвращаем ошибку, если произошла ошибка при обновлении
+	}
+
+	return nil // Успешное обновление
+}
+
 func AddStateColumnIfNotExists() error {
 	if DB == nil {
 		return fmt.Errorf("database connection is not established")
@@ -714,6 +769,39 @@ func AddRecMessColumnIfNotExists() error {
 		fmt.Println("Колонка 'recmess' успешно добавлена в таблицу 'bibinto'")
 	} else {
 		fmt.Println("Колонка 'recmess' уже существует в таблице 'bibinto'")
+	}
+	return nil
+}
+
+func AddAboutColumnIfNotExists() error {
+	if DB == nil {
+		return fmt.Errorf("database connection is not established")
+	}
+	// Проверяем, существует ли колонка 'state' в таблице 'bibinto'
+	var exists bool
+	query := `
+		SELECT EXISTS (
+			SELECT 1 
+			FROM information_schema.columns 
+			WHERE table_name='bibinto' AND column_name='about'
+		);
+	`
+	err := DB.QueryRow(context.Background(), query).Scan(&exists)
+	if err != nil {
+		log.Printf("Ошибка при проверке существования колонки: %v\n", err)
+		return err
+	}
+	// Если колонка не существует, добавляем ее
+	if !exists {
+		alterQuery := `ALTER TABLE bibinto ADD COLUMN about TEXT;`
+		_, err := DB.Exec(context.Background(), alterQuery)
+		if err != nil {
+			fmt.Printf("Ошибка при добавлении колонки: %v\n", err)
+			return err
+		}
+		fmt.Println("Колонка 'about' успешно добавлена в таблицу 'bibinto'")
+	} else {
+		fmt.Println("Колонка 'about' уже существует в таблице 'bibinto'")
 	}
 	return nil
 }

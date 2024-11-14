@@ -87,6 +87,8 @@ func Handle(event utils.Event, user utils.User, keyboards keyboard.Keyboards) {
 		handleAddState(event, user, keyboards)
 	case utils.POP_STATE:
 		handlePopState(event, user, keyboards)
+	case utils.CHANGE_ABOUT_STATE:
+		handleChangeAboutState(event, user, keyboards)
 	default:
 		handleDefaultState(user, keyboards)
 	}
@@ -170,6 +172,9 @@ func handleGoGrade(user utils.User, keyboards keyboard.Keyboards) {
 		addressString := fmt.Sprintf("\n📎Ссылка на страницу: @id%d(%s)", rec_user.UserID, rec_user.Name)
 		message = fmt.Sprintf("%s %s", message, addressString)
 	}
+	if rec_user.About != "" {
+		message = fmt.Sprintf("%s\n💭:%s\n", message, rec_user.About)
+	}
 	var keyboard string
 	if user.Admin == 1 {
 		keyboard, _ = keyboards.KeyboardGradeModer.ToJSON()
@@ -197,7 +202,7 @@ func handleMyGrades(user utils.User) {
 			SendMessage(user.UserID, "👮‍♂️Оценка от забаненного пользователя, мы скрыли его.", "")
 		}
 		message := fmt.Sprintf("🧒Имя оценщика %s\n⭐Оценил вас на %d/10\n", grade.User.Name, grade.Grade)
-		if grade.User.Address == 1 || user.Sub == 1 || user.Admin == 1 {
+		if grade.User.Address == 1 || user.Sub == 1 {
 			addressString := fmt.Sprintf("\n📎Ссылка на страницу: @id%d(%s)", grade.User.UserID, grade.User.Name)
 			message = fmt.Sprintf("%s%s", message, addressString)
 		}
@@ -215,7 +220,7 @@ func handleTop(user utils.User, keyboards keyboard.Keyboards) {
 		return
 	}
 	message := fmt.Sprintf("🥇ТОП 1\n\n🍀Имя: %s", users[0].Name)
-	if users[0].Address == 1 || user.Admin == 1 || user.Sub == 1 {
+	if users[0].Address == 1 || user.Sub == 1 {
 		addressString := fmt.Sprintf("\n📎Ссылка на страницу: @id%d(%s)", users[0].UserID, users[0].Name)
 		message = fmt.Sprintf("%s%s", message, addressString)
 	}
@@ -248,6 +253,10 @@ func handleChangeState(event utils.Event, user utils.User, keyboards keyboard.Ke
 		database.UpdateState(user.UserID, utils.CHANGE_PHOTO_STATE)
 		keyboard, _ := keyboards.KeyboardYesNo.ToJSON()
 		SendMessage(user.UserID, "Вы точно хотите сменить фото?", keyboard)
+	case `{"value":"change_about"}`:
+		database.UpdateState(user.UserID, utils.CHANGE_ABOUT_STATE)
+		keyboard, _ := keyboards.KeyboardChangeAbout.ToJSON()
+		SendMessage(user.UserID, "Напиши немного о себе (не более 150 символов):", keyboard)
 	case `{"value":"sub"}`:
 		handleSubscription(user, keyboards)
 	case `{"value":"buy_check"}`:
@@ -419,6 +428,9 @@ func handleGradeBan(user utils.User, keyboards keyboard.Keyboards) {
 		addressString := fmt.Sprintf("\n\n📎Ссылка на страницу: @id%d(%s)", rec_user.UserID, rec_user.Name)
 		message = fmt.Sprintf("%s %s", message, addressString)
 	}
+	if rec_user.About != "" {
+		message = fmt.Sprintf("%s\n💭:%s\n", message, rec_user.About)
+	}
 	var keyboard string
 	if user.Admin == 1 {
 		keyboard, _ = keyboards.KeyboardGradeModer.ToJSON()
@@ -497,10 +509,22 @@ func handleTopPosition(index int, user utils.User, keyboards keyboard.Keyboards)
 		SendMessage(user.UserID, "Топ пока не сформирован", keyboard)
 		return
 	}
-	message := fmt.Sprintf("🥇ТОП %d\n\n🍀Имя: %s", index+1, users[index].Name)
-	if users[index].Address == 1 || user.Admin == 1 || user.Sub == 1 {
+
+	medal := "🥇"
+	if index == 1 {
+		medal = "🥈"
+	}
+	if index == 2 {
+		medal = "🥉"
+	}
+
+	message := fmt.Sprintf("%sТОП %d\n\n🍀Имя: %s", medal, index+1, users[index].Name)
+	if users[index].Address == 1 || user.Sub == 1 {
 		addressString := fmt.Sprintf("\n📎Ссылка на страницу: @id%d(%s)", users[index].UserID, users[index].Name)
 		message = fmt.Sprintf("%s%s", message, addressString)
+	}
+	if users[index].About != "" {
+		message = fmt.Sprintf("%s\n💭:%s\n", message, users[index].About)
 	}
 	var score float32
 	if users[index].People != 0 {
@@ -595,6 +619,9 @@ func my_profile(user utils.User, keyboards keyboard.Keyboards) {
 	if user.Sub == 1 {
 		message = fmt.Sprintf("%s %s", message, "\n⚡Подписка активна⚡")
 	}
+	if user.About != "" {
+		message = fmt.Sprintf("%s\n💭:%s\n", message, user.About)
+	}
 	database.UpdateState(user.UserID, utils.CHANGE_STATE)
 	keyboard, _ := keyboards.KeyboardProfile.ToJSON()
 	SendPhoto(user.UserID, user.Photo, message, keyboard)
@@ -630,6 +657,9 @@ func goGrade(user utils.User, keyboards keyboard.Keyboards, extraMessage string)
 	if user.Sub == 1 {
 		addressString := fmt.Sprintf("\n📎Ссылка на страницу: @id%d(%s)", rec_user.UserID, rec_user.Name)
 		message = fmt.Sprintf("%s %s", message, addressString)
+	}
+	if rec_user.About != "" {
+		message = fmt.Sprintf("%s\n💭:%s\n", message, rec_user.About)
 	}
 	var keyboard string
 	if user.Admin == 1 {
@@ -862,4 +892,43 @@ func handlePopState(event utils.Event, user utils.User, keyboards keyboard.Keybo
 	database.UpdateState(user.UserID, utils.MENU_STATE)
 	keyboard, _ := keyboards.KeyboardMain.ToJSON()
 	SendMessage(user.UserID, "У пользователь успешно убрана подписка", keyboard)
+}
+
+func handleChangeAboutState(event utils.Event, user utils.User, keyboards keyboard.Keyboards) {
+	if event.Object.Message.Payload != "" {
+		switch event.Object.Message.Payload {
+		case `{"value":"delete_about"}`:
+			{
+				database.DeleteAbout(user.UserID)
+				database.UpdateState(user.UserID, utils.MENU_STATE)
+				keyboard, _ := keyboards.KeyboardProfile.ToJSON()
+				SendMessage(user.UserID, "Описание анкеты успешно удалено.", keyboard)
+				return
+			}
+		case `{"value":"back"}`:
+			{
+				database.UpdateState(user.UserID, utils.CHANGE_STATE)
+				keyboard, _ := keyboards.KeyboardProfile.ToJSON()
+				SendMessage(user.UserID, "Изменения отменены", keyboard)
+				return
+			}
+		}
+	}
+	message := event.Object.Message.Text
+	messageLength := len([]rune(message))
+	if messageLength < 2 || messageLength > 150 {
+		SendMessage(user.UserID, "Слишком маленький или слишком длинный текст\n\nМаксимум 150 символов, минимум 2", "")
+		return
+	}
+	pattern := `[,%*&^$£~"#';]`
+	re := regexp.MustCompile(pattern)
+	if re.MatchString(message) {
+		SendMessage(user.UserID, `Ты используешь запрещенные символы: [,%*&^$£~"#';]\nВведи текст без них`, "")
+		return
+	}
+	user.About = message
+	user.State = utils.CHANGE_STATE
+	database.UpdateUser(user)
+	keyboard, _ := keyboards.KeyboardProfile.ToJSON()
+	SendMessage(user.UserID, "Описание анкеты успешно изменено", keyboard)
 }

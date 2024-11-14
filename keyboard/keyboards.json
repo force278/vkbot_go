@@ -78,6 +78,13 @@
             "payload": "{\"value\":\"account_link\"}",
             "label": "📎Ссылка на профиль"
           }
+        },
+        {
+          "action": {
+            "type": "text",
+            "payload": "{\"value\":\"change_about\"}",
+            "label": "💭О себе"
+          }
         }
       ],
       [
@@ -463,6 +470,28 @@
             "type": "text",
             "payload": "{\"value\":\"back\"}",
             "label": "Назад"
+          }
+        }
+      ]
+    ]
+  },
+  "keyboard_change_about": {
+    "one_time": false,
+    "inline": false,
+    "buttons": [
+      [
+        {
+          "action": {
+            "type": "text",
+            "payload": "{\"value\":\"back\"}",
+            "label": "Назад"
+          }
+        },
+        {
+          "action": {
+            "type": "text",
+            "payload": "{\"value\":\"delete_about\"}",
+            "label": "Удалить описание"
           }
         }
       ]

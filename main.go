@@ -109,6 +109,7 @@ func main() {
 	database.AddStateColumnIfNotExists()
 	database.AddRecUserColumnIfNotExists()
 	database.AddRecMessColumnIfNotExists()
+	database.AddAboutColumnIfNotExists()
 
 	if err := keyboards.FromJSON(); err != nil {
 		log.Println("Ошибка чтения keyboard.json: ", err)

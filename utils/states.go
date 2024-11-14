@@ -22,4 +22,5 @@ const (
 	CHANGE_TOP_STATE          = 19
 	GO_MESSAGE_STATE          = 20
 	GO_MESSAGE_GRADE_STATE    = 21
+	CHANGE_ABOUT_STATE        = 22
 )

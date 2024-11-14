@@ -17,6 +17,7 @@ type Keyboards struct {
 	KeyboardReportChoose Keyboard `json:"keyboard_report_choose"`
 	KeyboardBack         Keyboard `json:"keyboard_back"`
 	KeyboardBuySub       Keyboard `json:"keyboard_buy_sub"`
+	KeyboardChangeAbout  Keyboard `json:"keyboard_change_about"`
 }
 
 // FromJSON преобразует JSON в структуру Keyboards
