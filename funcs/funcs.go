@@ -8,6 +8,7 @@ import (
 	"mime/multipart"
 	"net/http"
 	"net/url"
+	"strings"
 	"time"
 	"vkbot/config"
 	"vkbot/utils"
@@ -58,8 +59,7 @@ func SendPhoto(userID uint, photo string, message string, keyboard string) {
 	}
 	defer res.Body.Close() // Закрываем тело ответа после обработки
 
-	body, _ := io.ReadAll(res.Body) // Читаем тело ответа для диагностики
-	fmt.Println("Ответ от сервера:", string(body))
+	//body, _ := io.ReadAll(res.Body) // Читаем тело ответа для диагностики
 }
 
 // Получение URL загрузки для фотографий
@@ -209,7 +209,56 @@ func UploadPhoto(uploadURL string, photo utils.Photo, userID uint) string {
 	return SavePhoto(uploadResult, userID)
 }
 
-// Проверка покупки подписки (пока не реализовано)
-func CheckBuySub() {
-	// Реализация проверки покупки подписки
+// CheckBuySub отправляет POST-запрос на указанный URL
+func CheckBuySub(userid uint) (bool, error) {
+	// URL для запроса
+	endpoint := "https://yoomoney.ru/api/operation-history"
+
+	// Создаем данные для отправки в формате x-www-form-urlencoded
+	data := url.Values{}
+	data.Set("type", "deposition")
+	data.Set("records", fmt.Sprintf("%d", 30))
+
+	// Создаем новый HTTP-запрос
+	req, err := http.NewRequest("POST", endpoint, strings.NewReader(data.Encode()))
+	if err != nil {
+		return false, fmt.Errorf("ошибка при создании запроса: %v", err)
+	}
+
+	// Устанавливаем заголовки
+	req.Header.Set("Authorization", "Bearer "+config.AppConfig.YooMoneyToken)
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+
+	// Отправляем запрос
+	client := &http.Client{}
+	resp, err := client.Do(req)
+	if err != nil {
+		return false, fmt.Errorf("ошибка при отправке запроса: %v", err)
+	}
+	defer resp.Body.Close() // Закрываем тело ответа после обработки
+
+	// Проверяем статус ответа
+	if resp.StatusCode != http.StatusOK {
+		return false, fmt.Errorf("ошибка: получили статус %s", resp.Status)
+	}
+
+	// Обрабатываем ответ
+	var response utils.YooMoneyResponse
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return false, fmt.Errorf("ошибка при чтении ответа: %v", err)
+	}
+	// Десериализуем JSON в структуру
+	if err := json.Unmarshal(body, &response); err != nil {
+		return false, fmt.Errorf("ошибка при десериализации JSON: %v", err)
+	}
+
+	for _, operation := range response.Operations {
+		//fmt.Printf("Operation ID: %s, Title: %s, Amount: %.2f %s\n", operation.OperationID, operation.Title, operation.Amount, operation.AmountCurrency)
+		if operation.Label == string(userid) {
+			return true, nil
+		}
+	}
+
+	return false, nil
 }

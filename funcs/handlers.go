@@ -3,6 +3,8 @@ package funcs
 import (
 	"fmt"
 	"regexp"
+	"strconv"
+	"strings"
 	"vkbot/config"
 	"vkbot/database"
 	"vkbot/keyboard"
@@ -10,6 +12,46 @@ import (
 )
 
 func Handle(event utils.Event, user utils.User, keyboards keyboard.Keyboards) {
+	if user.Admin == 1 {
+		switch strings.ToLower(event.Object.Message.Text) {
+		case "забанить":
+			{
+				database.UpdateState(user.UserID, utils.GO_BAN_STATE)
+				SendMessage(user.UserID, "Введите UserID пользователя, которого хотите ЗАБАНИТЬ:", "")
+				return
+			}
+		case "разбанить":
+			{
+				database.UpdateState(user.UserID, utils.GO_UNBAN_STATE)
+				SendMessage(user.UserID, "Введите UserID пользователя, которого хотите РАЗБАНИТЬ:", "")
+				return
+			}
+		case "+подписка":
+			{
+				database.UpdateState(user.UserID, utils.ADD_STATE)
+				SendMessage(user.UserID, "Введите UserID пользователя, которому хотите ДОБАВИТЬ подписку:", "")
+				return
+			}
+		case "-подписка":
+			{
+				database.UpdateState(user.UserID, utils.POP_STATE)
+				SendMessage(user.UserID, "Введите UserID пользователя, которому хотите УБРАТЬ подписку:", "")
+				return
+			}
+		case "модер":
+			{
+
+			}
+		case "-модер":
+			{
+
+			}
+		case "рассылка123":
+			{
+
+			}
+		}
+	}
 	switch user.State {
 	case utils.NAME_STATE:
 		handleNameState(event, user)
@@ -36,9 +78,17 @@ func Handle(event utils.Event, user utils.User, keyboards keyboard.Keyboards) {
 	case utils.GO_MESSAGE_STATE:
 		handleGoMessageState(event, user, keyboards)
 	case utils.GO_MESSAGE_GRADE_STATE:
-		//handleGoMessageGradeState(event, user, keyboards)
+		handleGoMessageGradeState(event, user, keyboards)
+	case utils.GO_BAN_STATE:
+		handleBanState(event, user, keyboards)
+	case utils.GO_UNBAN_STATE:
+		handleUnbanState(event, user, keyboards)
+	case utils.ADD_STATE:
+		handleAddState(event, user, keyboards)
+	case utils.POP_STATE:
+		handlePopState(event, user, keyboards)
 	default:
-		//handleDefaultState(user, keyboards)
+		handleDefaultState(user, keyboards)
 	}
 }
 
@@ -96,7 +146,12 @@ func handleMenuState(event utils.Event, user utils.User, keyboards keyboard.Keyb
 		handleTop(user, keyboards)
 	case `{"value":"about"}`:
 		handleAbout(user)
+	case `{"value":"menu"}`:
+		database.UpdateState(user.UserID, utils.MENU_STATE)
+		keyboard, _ := keyboards.KeyboardMain.ToJSON()
+		SendMessage(user.UserID, "Меню:", keyboard)
 	}
+
 }
 
 func handleGoGrade(user utils.User, keyboards keyboard.Keyboards) {
@@ -172,6 +227,7 @@ func handleTop(user utils.User, keyboards keyboard.Keyboards) {
 	}
 	tempMessage := fmt.Sprintf("\n⭐Фото оценили на: %.2f/10\n👥Оценили %d человек", score, users[0].People)
 	message = fmt.Sprintf("%s%s", message, tempMessage)
+	database.UpdateState(user.UserID, utils.TOP_STATE)
 	keyboard, _ := keyboards.KeyboardTop.ToJSON()
 	SendPhoto(user.UserID, users[0].Photo, message, keyboard)
 }
@@ -195,11 +251,23 @@ func handleChangeState(event utils.Event, user utils.User, keyboards keyboard.Ke
 	case `{"value":"sub"}`:
 		handleSubscription(user, keyboards)
 	case `{"value":"buy_check"}`:
-		CheckBuySub()
-		SendMessage(user.UserID, "Заглушка", "")
+		if user.Sub != 1 {
+			result, _ := CheckBuySub(user.UserID)
+			if result {
+				user.Sub = 1
+				database.UpdateUser(user)
+				keyboard, _ := keyboards.KeyboardProfile.ToJSON()
+				SendMessage(user.UserID, "Подписка успешно приобретена!\nТеперь вы будете видеть все ссылки на страницы пользователей.", keyboard)
+
+			}
+			SendMessage(user.UserID, "Оплата не найдена", "")
+			return
+		}
+		keyboard, _ := keyboards.KeyboardProfile.ToJSON()
+		SendMessage(user.UserID, "У тебя уже есть подписка, ты видишь скрытые ссылки на профили людей.", keyboard)
 	case `{"value":"buy"}`:
-		var buyUrl string
-		message := fmt.Sprintf("Перейдите по ссылке, чтобы оплатить подписку\n\nПосле оплаты нажмите кнопку 'Проверить оплату' \n%s", buyUrl)
+		buyUrl := "https://yoomoney.ru/quickpay/confirm.xml?receiver=4100117730854038&quickpay-form=shop&targets=Бибинто%20ВК&paymentType=SB&sum=100&label=159236101"
+		message := fmt.Sprintf("Перейдите по ссылке, чтобы оплатить подписку\n\nПосле оплаты нажмите кнопку 'Проверить оплату' \n%s\n\nВк может ругаться на подозрительную ссылку, тогда открой ссылку в браузере.", buyUrl)
 		SendMessage(user.UserID, message, "")
 	case `{"value":"account_link"}`:
 		database.UpdateState(user.UserID, utils.CHANGE_ADDRESS_STATE)
@@ -335,7 +403,7 @@ func handleGradeBan(user utils.User, keyboards keyboard.Keyboards) {
 		SendMessage(user.UserID, "Ты не админ, чтобы банить", keyboard)
 		return
 	}
-	database.Ban(user.RecUser)
+	database.Ban(uint64(user.RecUser))
 	message := fmt.Sprintf("Предыдущий пользователь забанен!\nЕго id: %d\n\n📎Ссылка на страницу: @id%d(%s)", user.RecUser, user.RecUser, "Профиль")
 	rec_user, recExists, err := database.GetRec(user.UserID)
 	if err != nil {
@@ -411,7 +479,7 @@ func handleTopState(event utils.Event, user utils.User, keyboards keyboard.Keybo
 	case `{"value":"top_3"}`:
 		handleTopPosition(2, user, keyboards)
 	case `{"value":"top_10"}`:
-		handleTop10(user)
+		handleTop10(user, keyboards)
 	case `{"value":"my_top_position"}`:
 		handleMyTopPosition(user)
 	case `{"value":"menu"}`:
@@ -446,11 +514,17 @@ func handleTopPosition(index int, user utils.User, keyboards keyboard.Keyboards)
 	SendPhoto(user.UserID, users[index].Photo, message, keyboard)
 }
 
-func handleTop10(user utils.User) {
+func handleTop10(user utils.User, keyboards keyboard.Keyboards) {
 	top10, _ := database.Top10()
 	var photos string
 	for _, photo := range top10 {
 		photos = fmt.Sprintf("%s, %s", photos, photo)
+	}
+	if photos == "" {
+		database.UpdateState(user.UserID, utils.MENU_STATE)
+		keyboard, _ := keyboards.KeyboardMain.ToJSON()
+		SendMessage(user.UserID, "Топ пока не сформирован", keyboard)
+		return
 	}
 	SendPhoto(user.UserID, photos, "", "")
 }
@@ -567,4 +641,225 @@ func goGrade(user utils.User, keyboards keyboard.Keyboards, extraMessage string)
 	user.State = utils.GO_STATE
 	database.UpdateUser(user)
 	SendPhoto(user.UserID, rec_user.Photo, message, keyboard)
+}
+
+func handleGoMessageGradeState(event utils.Event, user utils.User, keyboards keyboard.Keyboards) {
+	switch event.Object.Message.Payload {
+	case `{"value":"back"}`:
+		{
+			rec_user, _, _ := database.GetUser(user.RecUser)
+			var message string
+			if user.Sub == 1 {
+				addressString := fmt.Sprintf("\n📎Ссылка на страницу: @id%d(%s)", rec_user.UserID, "Ссылка")
+				message = fmt.Sprintf("%s %s", message, addressString)
+			}
+			var keyboard string
+			if user.Admin == 1 {
+				keyboard, _ = keyboards.KeyboardGradeModer.ToJSON()
+			} else {
+				keyboard, _ = keyboards.KeyboardGrade.ToJSON()
+			}
+			user.RecUser = rec_user.UserID
+			user.State = utils.GO_STATE
+			database.UpdateUser(user)
+			SendPhoto(user.UserID, rec_user.Photo, message, keyboard)
+		}
+	case `{"value":"grade_report"}`:
+		{
+			database.UpdateState(user.UserID, utils.COMPLAINT_STATE)
+			keyboard, _ := keyboards.KeyboardReportChoose.ToJSON()
+			SendMessage(user.UserID, "Введите причину жалобы текстом!\nИли выберите из предложенного", keyboard)
+		}
+	case `{"value":"grade_ban"}`:
+		{
+			if user.Admin != 1 {
+				database.UpdateState(user.UserID, utils.MENU_STATE)
+				keyboard, _ := keyboards.KeyboardMain.ToJSON()
+				SendMessage(user.UserID, "Ты не админ, чтобы банить", keyboard)
+				return
+			}
+			database.Ban(uint64(user.RecUser))
+			message := fmt.Sprintf("Предыдущий пользователь забанен!\nЕго id: %d\n\n📎Ссылка на страницу: @id%d(%s)", user.RecUser, user.RecUser, "Профиль")
+			rec_user, recExists, err := database.GetRec(user.UserID)
+			if err != nil {
+				fmt.Printf("Ошибка в MENU_STATE go_grade %s", err)
+				return
+			}
+			if !recExists {
+				keyboard, _ := keyboards.KeyboardMain.ToJSON()
+				SendMessage(user.UserID, "Больше нет людей для оценки, подождите пока появятся новые пользователи.\n\nМеню:", keyboard)
+				return
+			}
+			if user.Sub == 1 {
+				addressString := fmt.Sprintf("\n\n📎Ссылка на страницу: @id%d(%s)", rec_user.UserID, rec_user.Name)
+				message = fmt.Sprintf("%s %s", message, addressString)
+			}
+			var keyboard string
+			if user.Admin == 1 {
+				keyboard, _ = keyboards.KeyboardGradeModer.ToJSON()
+			} else {
+				keyboard, _ = keyboards.KeyboardGrade.ToJSON()
+			}
+			user.RecUser = rec_user.UserID
+			user.State = utils.GO_STATE
+			database.UpdateUser(user)
+			SendPhoto(user.UserID, rec_user.Photo, message, keyboard)
+		}
+	case `{"value":"grade_message"}`:
+		{
+			SendMessage(user.UserID, "Ты уже написал комментарий к оценке, поставь оценку", "")
+		}
+	case `{"value":"menu"}`:
+		{
+			database.UpdateState(user.UserID, utils.MENU_STATE)
+			keyboard, _ := keyboards.KeyboardMain.ToJSON()
+			SendMessage(user.UserID, "Меню:", keyboard)
+		}
+	case `{"value":"grade_1"}`:
+		{
+			createGrade(1, user, user.RecMess)
+			goGrade(user, keyboards, "")
+		}
+	case `{"value":"grade_2"}`:
+		{
+			createGrade(2, user, user.RecMess)
+			goGrade(user, keyboards, "")
+		}
+	case `{"value":"grade_3"}`:
+		{
+			createGrade(3, user, user.RecMess)
+			goGrade(user, keyboards, "")
+		}
+	case `{"value":"grade_4"}`:
+		{
+			createGrade(4, user, user.RecMess)
+			goGrade(user, keyboards, "")
+		}
+	case `{"value":"grade_5"}`:
+		{
+			createGrade(5, user, user.RecMess)
+			goGrade(user, keyboards, "")
+		}
+	case `{"value":"grade_6"}`:
+		{
+			createGrade(6, user, user.RecMess)
+			goGrade(user, keyboards, "")
+		}
+	case `{"value":"grade_7"}`:
+		{
+			createGrade(7, user, user.RecMess)
+			goGrade(user, keyboards, "")
+		}
+	case `{"value":"grade_8"}`:
+		{
+			createGrade(8, user, user.RecMess)
+			goGrade(user, keyboards, "")
+		}
+	case `{"value":"grade_9"}`:
+		{
+			createGrade(9, user, user.RecMess)
+			goGrade(user, keyboards, "")
+		}
+	case `{"value":"grade_10"}`:
+		{
+			createGrade(10, user, user.RecMess)
+			goGrade(user, keyboards, "")
+		}
+	}
+}
+
+func handleDefaultState(user utils.User, keyboards keyboard.Keyboards) {
+	// Для начала проверим есть ли имя и фото у пользователя
+	if user.Name == "None" || user.Photo == "None" || user.Name == "" || user.Photo == "" {
+		// Если у пользователя нет имени или фото, то отправляем заполнять имя
+		// Отправляем его в меню
+		database.UpdateState(user.UserID, utils.NAME_STATE)
+		SendMessage(user.UserID, "Я не смог найти твою анкету.\nДавай заполним ее заново.\n\nНапиши свое имя:", "")
+		return
+	}
+	// Отправляем его в меню
+	database.UpdateState(user.UserID, utils.MENU_STATE)
+	keyboard, err := keyboards.KeyboardMain.ToJSON()
+	if err != nil {
+		fmt.Printf("ошибка клавиатуры в handle default %s", err)
+		return
+	}
+	SendMessage(user.UserID, "Меню:", keyboard)
+}
+
+func handleBanState(event utils.Event, user utils.User, keyboards keyboard.Keyboards) {
+	useridString := event.Object.Message.Text
+	userid, err := strconv.ParseUint(useridString, 10, 0) // основание 10, 0 для автоматического выбора размера
+	if err != nil {
+		SendMessage(user.UserID, "Некорректный ввод id пользователя. Пример: 832787473", "")
+		return
+	}
+	err = database.Ban(userid)
+	if err != nil {
+		database.UpdateState(user.UserID, utils.MENU_STATE)
+		keyboard, _ := keyboards.KeyboardMain.ToJSON()
+		SendMessage(user.UserID, "Не получилось забанить пользователя с таким id", keyboard)
+		return
+	}
+	database.UpdateState(user.UserID, utils.MENU_STATE)
+	keyboard, _ := keyboards.KeyboardMain.ToJSON()
+	SendMessage(user.UserID, "Пользователь успешно забанен", keyboard)
+
+}
+
+func handleUnbanState(event utils.Event, user utils.User, keyboards keyboard.Keyboards) {
+	useridString := event.Object.Message.Text
+	userid, err := strconv.ParseUint(useridString, 10, 0) // основание 10, 0 для автоматического выбора размера
+	if err != nil {
+		SendMessage(user.UserID, "Некорректный ввод id пользователя. Пример: 832787473", "")
+		return
+	}
+	err = database.Unban(userid)
+	if err != nil {
+		database.UpdateState(user.UserID, utils.MENU_STATE)
+		keyboard, _ := keyboards.KeyboardMain.ToJSON()
+		SendMessage(user.UserID, "Не получилось забанить пользователя с таким id", keyboard)
+		return
+	}
+	database.UpdateState(user.UserID, utils.MENU_STATE)
+	keyboard, _ := keyboards.KeyboardMain.ToJSON()
+	SendMessage(user.UserID, "Пользователь успешно забанен", keyboard)
+}
+
+func handleAddState(event utils.Event, user utils.User, keyboards keyboard.Keyboards) {
+	useridString := event.Object.Message.Text
+	userid, err := strconv.ParseUint(useridString, 10, 0) // основание 10, 0 для автоматического выбора размера
+	if err != nil {
+		SendMessage(user.UserID, "Некорректный ввод id пользователя. Пример: 832787473", "")
+		return
+	}
+	err = database.AddSub(userid)
+	if err != nil {
+		database.UpdateState(user.UserID, utils.MENU_STATE)
+		keyboard, _ := keyboards.KeyboardMain.ToJSON()
+		SendMessage(user.UserID, "Не получилось добавить подписку пользователю с таким id", keyboard)
+		return
+	}
+	database.UpdateState(user.UserID, utils.MENU_STATE)
+	keyboard, _ := keyboards.KeyboardMain.ToJSON()
+	SendMessage(user.UserID, "Пользователю успешно добавлена подписка", keyboard)
+}
+
+func handlePopState(event utils.Event, user utils.User, keyboards keyboard.Keyboards) {
+	useridString := event.Object.Message.Text
+	userid, err := strconv.ParseUint(useridString, 10, 0) // основание 10, 0 для автоматического выбора размера
+	if err != nil {
+		SendMessage(user.UserID, "Некорректный ввод id пользователя. Пример: 832787473", "")
+		return
+	}
+	err = database.PopSub(userid)
+	if err != nil {
+		database.UpdateState(user.UserID, utils.MENU_STATE)
+		keyboard, _ := keyboards.KeyboardMain.ToJSON()
+		SendMessage(user.UserID, "Не получилось убрать подписку у пользователя с таким id", keyboard)
+		return
+	}
+	database.UpdateState(user.UserID, utils.MENU_STATE)
+	keyboard, _ := keyboards.KeyboardMain.ToJSON()
+	SendMessage(user.UserID, "У пользователь успешно убрана подписка", keyboard)
 }

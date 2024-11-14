@@ -127,3 +127,31 @@ type Stack struct {
 	ID     uint
 	UserID uint
 }
+
+// SpendingCategory представляет категорию расходов
+type SpendingCategory struct {
+	Name string  `json:"name"`
+	Sum  float64 `json:"sum"`
+}
+
+// Operation представляет операцию
+type Operation struct {
+	GroupID            string             `json:"group_id"`
+	OperationID        string             `json:"operation_id"`
+	Title              string             `json:"title"`
+	Amount             float64            `json:"amount"`
+	Direction          string             `json:"direction"`
+	Datetime           string             `json:"datetime"`
+	Label              string             `json:"label"`
+	Status             string             `json:"status"`
+	Type               string             `json:"type"`
+	SpendingCategories []SpendingCategory `json:"spendingCategories"`
+	AmountCurrency     string             `json:"amount_currency"`
+	IsSbpOperation     bool               `json:"is_sbp_operation"`
+}
+
+// Response представляет полный ответ от API
+type YooMoneyResponse struct {
+	NextRecord string      `json:"next_record"`
+	Operations []Operation `json:"operations"`
+}

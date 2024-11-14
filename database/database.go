@@ -323,13 +323,53 @@ func DeleteHistory(userid uint) error {
 }
 
 // Ban запрещает пользователя
-func Ban(userid uint) error {
+func Ban(userid uint64) error {
 	if DB == nil {
 		return fmt.Errorf("database connection is not established")
 	}
 
 	query := `UPDATE bibinto SET ban = $1 WHERE userid = $2`
-	_, err := DB.Exec(context.Background(), query, true, userid)
+	_, err := DB.Exec(context.Background(), query, 1, userid)
+	if err != nil {
+		return fmt.Errorf("failed to ban user: %w", err)
+	}
+	return nil
+}
+
+// Ban запрещает пользователя
+func Unban(userid uint64) error {
+	if DB == nil {
+		return fmt.Errorf("database connection is not established")
+	}
+
+	query := `UPDATE bibinto SET ban = $1 WHERE userid = $2`
+	_, err := DB.Exec(context.Background(), query, 0, userid)
+	if err != nil {
+		return fmt.Errorf("failed to ban user: %w", err)
+	}
+	return nil
+}
+
+func AddSub(userid uint64) error {
+	if DB == nil {
+		return fmt.Errorf("database connection is not established")
+	}
+
+	query := `UPDATE bibinto SET Sub = $1 WHERE userid = $2`
+	_, err := DB.Exec(context.Background(), query, 1, userid)
+	if err != nil {
+		return fmt.Errorf("failed to ban user: %w", err)
+	}
+	return nil
+}
+
+func PopSub(userid uint64) error {
+	if DB == nil {
+		return fmt.Errorf("database connection is not established")
+	}
+
+	query := `UPDATE bibinto SET Sub = $1 WHERE userid = $2`
+	_, err := DB.Exec(context.Background(), query, 0, userid)
 	if err != nil {
 		return fmt.Errorf("failed to ban user: %w", err)
 	}
@@ -399,17 +439,56 @@ func Top() ([]utils.User, error) {
 	rows, err := DB.Query(context.Background(), query)
 	if err != nil {
 		log.Printf("Ошибка выполнения запроса на получение топа пользователей: %v\n", err)
-		return nil, err
+		return []utils.User{}, err
 	}
 	defer rows.Close()
+
+	var Score, People, Active, Ban, Admin, Address, Sub, State sql.NullInt32
+	var Name, Photo, RecMess sql.NullString
+	var LastMessage sql.NullTime
 
 	var topUsers []utils.User
 	for rows.Next() {
 		var user utils.User
-		if err := rows.Scan(&user.ID, &user.UserID, &user.Name, &user.Photo, &user.Score, &user.People, &user.Active, &user.Ban, &user.Admin, &user.Address, &user.Sub, &user.LastMessage, &user.State); err != nil {
+		if err := rows.Scan(&user.ID, &user.UserID, &Name, &Photo, &Score, &People, &Active, &Ban, &Admin, &Address, &Sub, &LastMessage, &State, &user.RecUser, &RecMess); err != nil {
 			log.Printf("Ошибка при сканировании строки: %v\n", err)
 			return nil, err
 		}
+		// Присваиваем значения полям структуры user
+		if Name.Valid {
+			user.Name = Name.String
+		}
+		if Photo.Valid {
+			user.Photo = Photo.String
+		}
+		if RecMess.Valid {
+			user.RecMess = RecMess.String
+		}
+		if Score.Valid {
+			user.Score = int(Score.Int32)
+		}
+		if People.Valid {
+			user.People = int(People.Int32)
+		}
+		if Active.Valid {
+			user.Active = int(Active.Int32)
+		}
+		if Ban.Valid {
+			user.Ban = int(Ban.Int32)
+		}
+		if Admin.Valid {
+			user.Admin = int(Admin.Int32)
+		}
+		if Address.Valid {
+			user.Address = int(Address.Int32)
+		}
+		if LastMessage.Valid {
+			user.LastMessage = LastMessage.Time
+		}
+		if State.Valid {
+			user.State = int(State.Int32)
+		}
+
 		topUsers = append(topUsers, user)
 	}
 

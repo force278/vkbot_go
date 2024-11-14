@@ -6,15 +6,16 @@ import (
 )
 
 type Config struct {
-	Token       string `json:"token"`
-	GroupID     string `json:"groupID"`
-	ApiVersion  string `json:"apiVersion"`
-	DbName      string `json:"dbName"`
-	DbUser      string `json:"dbUser"`
-	DbPassword  string `json:"dbPassword"`
-	DbHost      string `json:"dbHost"`
-	DbPort      uint16 `json:"dbPort"`
-	ReportAdmin uint   `json:"reportAdmin"`
+	Token         string `json:"token"`
+	GroupID       string `json:"groupID"`
+	ApiVersion    string `json:"apiVersion"`
+	DbName        string `json:"dbName"`
+	DbUser        string `json:"dbUser"`
+	DbPassword    string `json:"dbPassword"`
+	DbHost        string `json:"dbHost"`
+	DbPort        uint16 `json:"dbPort"`
+	ReportAdmin   uint   `json:"reportAdmin"`
+	YooMoneyToken string `json:"yooMoneyToken"`
 }
 
 var AppConfig Config

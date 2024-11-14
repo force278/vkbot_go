@@ -75,8 +75,6 @@ func LoggingMiddleware(next http.Handler) http.Handler {
 			user.ID = newID
 		}
 
-		log.Printf("User  info: %+v\n", user)
-
 		// Проверяем, забанен ли пользователь
 		if user.Ban == 1 {
 			return
@@ -146,18 +144,6 @@ func callbackHandler(w http.ResponseWriter, r *http.Request) {
 	switch event.Type {
 	case "message_new":
 		funcs.Handle(event, user, keyboards)
-		// Обработка вложений, если необходимо
-		/*
-			if len(event.Object.Message.Attachments) > 0 {
-				attachment := event.Object.Message.Attachments[0]
-				if attachment.Type == "photo" {
-					uploadURL := funcs.GetUploadServer()
-					if uploadURL != "" {
-						funcs.UploadPhoto(uploadURL, *attachment.Photo, event.Object.Message.FromID)
-					}
-				}
-			}
-		*/
 	case "message_deny":
 		// Обработка события deny
 	case "message_allow":
