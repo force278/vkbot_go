@@ -114,7 +114,6 @@ type Grade struct {
 	ValuerID uint
 	Grade    int
 	Message  string
-	User     User
 	Valuer   User
 }
 

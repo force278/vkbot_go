@@ -397,10 +397,27 @@ func AddGrade(userid uint, valuerid uint, grade int, message *string) error {
 		return fmt.Errorf("database connection is not established")
 	}
 
-	query := `INSERT INTO grades (userid, valuerid, grade, message) VALUES ($1, $2, $3, $4)`
-	_, err := DB.Exec(context.Background(), query, userid, valuerid, grade, message)
+	ctx := context.Background()
+
+	// Обработка возможного nil значения для message
+	var messageValue sql.NullString
+	if message != nil {
+		messageValue = sql.NullString{String: *message, Valid: true}
+	} else {
+		messageValue = sql.NullString{Valid: false} // Устанавливаем Valid в false для NULL
+	}
+
+	query := `INSERT INTO grades (userid, valuerid, grade, message) VALUES ($1, $2, $3, \\$4)`
+	_, err := DB.Exec(ctx, query, userid, valuerid, grade, messageValue)
 	if err != nil {
-		log.Printf("Ошибка выполнения запроса AddGrade: %vn", err)
+		log.Printf("Ошибка выполнения запроса AddGrade: %v", err)
+		return err
+	}
+
+	query = `INSERT INTO history (User ID, ValuerID) VALUES ($1, $2)`
+	_, err = DB.Exec(ctx, query, userid, valuerid)
+	if err != nil {
+		log.Printf("Ошибка выполнения запроса AddGrade insert history: %v", err)
 		return err
 	}
 
@@ -433,17 +450,105 @@ ORDER BY grades.message LIMIT 5`
 	defer rows.Close()
 
 	var grades []utils.Grade
-	var ids []uint // Для хранения ID оценок, которые нужно удалить
+	var ids []uint                   // Для хранения ID оценок, которые нужно удалить
+	idMap := make(map[uint]struct{}) // Используем map для отслеживания уникальных
 	for rows.Next() {
 		var g utils.Grade
 		if err := rows.Scan(&g.ID, &g.UserID, &g.ValuerID, &g.Grade, &g.Message); err != nil {
 			fmt.Printf("Ошибка при сканировании строки: %v\n", err)
 			return nil, err
 		}
-		grades = append(grades, g)
-		ids = append(ids, g.ID) // Сохраняем ID для удаления
+		// Проверяем уникальность ID
+		if _, exists := idMap[g.UserID]; !exists {
+			grades = append(grades, g)   // Добавляем оценку в срез, если ID уникален
+			idMap[g.UserID] = struct{}{} // Добавляем ID в map
+		}
+		ids = append(ids, g.ID)
 	}
 
+	// Формируем строку запроса на удаление с правильным количеством параметров
+	valuersQuery := "SELECT * FROM bibinto WHERE userid IN ("
+	for i := range grades {
+		if i > 0 {
+			valuersQuery += ", "
+		}
+		valuersQuery += fmt.Sprintf("$%d", i+1) // Параметры начинаются с \$1
+	}
+	valuersQuery += ");"
+
+	// Преобразуем ids в срез interface{}
+	args := make([]interface{}, len(grades))
+	for i, g := range grades {
+		args[i] = g.ValuerID // Предполагается, что вы хотите использовать ValuerID
+	}
+
+	var valuers []utils.User
+
+	// Выполняем запрос на получение валидаторов, только если есть валидаторы
+	if len(grades) > 0 {
+		rows, err := tx.Query(context.Background(), valuersQuery, args...)
+		if err != nil {
+			fmt.Printf("Ошибка при выполнении запроса на получение валидаторов: %v\n", err)
+			return nil, err
+		}
+		defer rows.Close()
+
+		for rows.Next() {
+			var u utils.User
+			var Score, People, Active, Ban, Admin, Address, Sub, State sql.NullInt32
+			var Name, Photo, RecMess, About sql.NullString
+			var LastMessage sql.NullTime
+
+			if err := rows.Scan(&u.ID, &u.UserID, &Name, &Photo, &Score, &People, &Active, &Ban, &Admin, &Address, &Sub, &LastMessage, &State, &u.RecUser, &RecMess, &About); err != nil {
+				fmt.Printf("Ошибка при сканировании строки: %v\n", err)
+				return nil, err
+			}
+			// Присваиваем значения полям структуры user
+			if Name.Valid {
+				u.Name = Name.String
+			}
+			if Photo.Valid {
+				u.Photo = Photo.String
+			}
+			if RecMess.Valid {
+				u.RecMess = RecMess.String
+			}
+			if About.Valid {
+				u.About = About.String
+			}
+			if Score.Valid {
+				u.Score = int(Score.Int32)
+			}
+			if People.Valid {
+				u.People = int(People.Int32)
+			}
+			if Active.Valid {
+				u.Active = int(Active.Int32)
+			}
+			if Ban.Valid {
+				u.Ban = int(Ban.Int32)
+			}
+			if Admin.Valid {
+				u.Admin = int(Admin.Int32)
+			}
+			if Address.Valid {
+				u.Address = int(Address.Int32)
+			}
+			if LastMessage.Valid {
+				u.LastMessage = LastMessage.Time
+			}
+			if State.Valid {
+				u.State = int(State.Int32)
+			}
+			valuers = append(valuers, u)
+		}
+
+	}
+	fmt.Printf("%+v\n", grades)
+	fmt.Printf("%+v\n", valuers)
+	for i := range grades {
+		grades[i].Valuer = valuers[i] // Изменяем элемент среза напрямую по индексу
+	}
 	// Удаляем полученные оценки, если они есть
 	if len(ids) > 0 {
 		// Формируем строку запроса на удаление с правильным количеством параметров
@@ -454,10 +559,16 @@ ORDER BY grades.message LIMIT 5`
 			}
 			deleteQuery += fmt.Sprintf("$%d", i+1) // Параметры начинаются с $1
 		}
-		deleteQuery += ")"
+		deleteQuery += ");"
+
+		// Преобразуем ids в срез interface{}
+		args := make([]interface{}, len(ids))
+		for i, id := range ids {
+			args[i] = id
+		}
 
 		// Выполняем удаление оценок
-		if _, err := tx.Exec(context.Background(), deleteQuery, ids); err != nil {
+		if _, err := tx.Exec(context.Background(), deleteQuery, args...); err != nil {
 			fmt.Printf("Ошибка при удалении оценок: %v\n", err)
 			return nil, err
 		}

@@ -126,6 +126,7 @@ func handlePhotoState(event utils.Event, user utils.User, keyboards keyboard.Key
 			photo := UploadPhoto(uploadURL, *attachment.Photo, user.UserID)
 			user.Photo = photo
 			user.State = utils.MENU_STATE
+			database.AddStack(user.UserID)
 			database.UpdateUser(user)
 			keyboard, _ := keyboards.KeyboardMain.ToJSON()
 			SendMessage(user.UserID, "Твоя анкета заполнена.\nМеню:", keyboard)
@@ -199,16 +200,22 @@ func handleMyGrades(user utils.User) {
 		return
 	}
 	for _, grade := range grades {
-		if grade.User.Ban == 1 {
+		if grade.Valuer.Ban == 1 {
 			SendMessage(user.UserID, "👮‍♂️Оценка от забаненного пользователя, мы скрыли его.", "")
 		}
-		message := fmt.Sprintf("🧒Имя оценщика %s\n⭐Оценил вас на %d/10\n", grade.User.Name, grade.Grade)
-		if grade.User.Address == 1 || user.Sub == 1 {
-			addressString := fmt.Sprintf("\n📎Ссылка на страницу: @id%d(%s)", grade.User.UserID, grade.User.Name)
+		message := fmt.Sprintf("🧒Имя оценщика %s\n⭐Оценил вас на %d/10\n", grade.Valuer.Name, grade.Grade)
+		if grade.Valuer.Address == 1 || user.Sub == 1 {
+			addressString := fmt.Sprintf("\n📎Ссылка на страницу: @id%d(%s)", grade.Valuer.UserID, grade.Valuer.Name)
 			message = fmt.Sprintf("%s%s", message, addressString)
 		}
-		message = fmt.Sprintf("%s%s", message, "👇🏻Фотография оценщика👇🏻")
-		SendPhoto(user.UserID, grade.User.Photo, message, "")
+		if grade.Valuer.About != "" {
+			message = fmt.Sprintf("%s\n💭:%s", message, grade.Valuer.About)
+		}
+		if grade.Message != "" {
+			message = fmt.Sprintf("%s\n💌:%s", message, grade.Message)
+		}
+		message = fmt.Sprintf("%s%s", message, "\n👇🏻Фотография оценщика👇🏻")
+		SendPhoto(user.UserID, grade.Valuer.Photo, message, "")
 	}
 }
 
@@ -445,18 +452,19 @@ func handleGradeBan(user utils.User, keyboards keyboard.Keyboards) {
 }
 
 func handleComplaintState(event utils.Event, user utils.User, keyboards keyboard.Keyboards) {
+	rec_user, _, _ := database.GetUser(user.RecUser)
 	var adminMessage string
 	switch event.Object.Message.Payload {
 	case `{"value":"report_18+"}`:
-		adminMessage = fmt.Sprintf("Жалоба (18+) от %s|%d на %d", user.Name, user.UserID, user.RecUser)
+		adminMessage = fmt.Sprintf("Жалоба (18+) от %s|%d на %s|%d", user.Name, user.UserID, rec_user.Name, rec_user.UserID)
 	case `{"value":"report_younger_14"}`:
-		adminMessage = fmt.Sprintf("Жалоба (Младше 14) от %s|%d на %d", user.Name, user.UserID, user.RecUser)
+		adminMessage = fmt.Sprintf("Жалоба (Младше 14) от %s|%d на %s|%d", user.Name, user.UserID, rec_user.Name, user.RecUser)
 	case `{"value":"spam"}`:
-		adminMessage = fmt.Sprintf("Жалоба (Спам) от %s|%d на %d", user.Name, user.UserID, user.RecUser)
+		adminMessage = fmt.Sprintf("Жалоба (Спам) от %s|%d на %s|%d", user.Name, user.UserID, rec_user.Name, user.RecUser)
 	case `{"value":"back"}`:
 		goGrade(user, keyboards, "")
 	}
-	SendMessage(config.AppConfig.ReportAdmin, adminMessage, "")
+	SendPhoto(config.AppConfig.ReportAdmin, rec_user.Photo, adminMessage, "")
 	goGrade(user, keyboards, "Спасибо за жалобу, мы рассмотрим его в ближайшее время!")
 }
 
@@ -805,7 +813,7 @@ func handleDefaultState(user utils.User, keyboards keyboard.Keyboards) {
 		// Если у пользователя нет имени или фото, то отправляем заполнять имя
 		// Отправляем его в меню
 		database.UpdateState(user.UserID, utils.NAME_STATE)
-		SendMessage(user.UserID, "Я не смог найти твою анкету.\nДавай заполним ее заново.\n\nНапиши свое имя:", "")
+		SendMessage(user.UserID, "Привет, это бот по оценке внешности.\nДавай заполним твою анкету.\n\nНапиши свое имя:", "")
 		return
 	}
 	// Отправляем его в меню
@@ -901,7 +909,7 @@ func handleChangeAboutState(event utils.Event, user utils.User, keyboards keyboa
 		case `{"value":"delete_about"}`:
 			{
 				database.DeleteAbout(user.UserID)
-				database.UpdateState(user.UserID, utils.MENU_STATE)
+				database.UpdateState(user.UserID, utils.CHANGE_STATE)
 				keyboard, _ := keyboards.KeyboardProfile.ToJSON()
 				SendMessage(user.UserID, "Описание анкеты успешно удалено.", keyboard)
 				return
