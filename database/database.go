@@ -105,56 +105,62 @@ func GetUser(userid uint) (utils.User, bool, error) {
 	}
 
 	query := `SELECT * FROM bibinto WHERE userid = $1`
-	row := DB.QueryRow(context.Background(), query, userid)
+	rows, _ := DB.Query(context.Background(), query, userid)
 
 	var user utils.User
 	var Score, People, Active, Ban, Admin, Address, Sub, State sql.NullInt32
 	var Name, Photo, RecMess, About sql.NullString
 	var LastMessage sql.NullTime
-
-	if err := row.Scan(&user.ID, &user.UserID, &Name, &Photo, &Score, &People, &Active, &Ban, &Admin, &Address, &Sub, &LastMessage, &State, &user.RecUser, &RecMess, &About); err != nil {
-		if err == sql.ErrNoRows {
-			return utils.User{}, false, nil // Пользователь не найден
+	defer rows.Close()
+	if rows.Next() {
+		if err := rows.Scan(&user.ID, &user.UserID, &Name, &Photo, &Score, &People, &Active, &Ban, &Admin, &Address, &Sub, &LastMessage, &State, &user.RecUser, &RecMess, &About); err != nil {
+			return utils.User{}, false, fmt.Errorf("failed to scan row: %v", err)
 		}
-		return utils.User{}, false, fmt.Errorf("failed to scan row: %v", err)
-	}
 
-	// Присваиваем значения полям структуры user
-	if Name.Valid {
-		user.Name = Name.String
+		// Присваиваем значения полям структуры user
+		if Name.Valid {
+			user.Name = Name.String
+		}
+		if Photo.Valid {
+			user.Photo = Photo.String
+		}
+		if RecMess.Valid {
+			user.RecMess = RecMess.String
+		}
+		if RecMess.Valid {
+			user.About = About.String
+		}
+		if Score.Valid {
+			user.Score = int(Score.Int32)
+		}
+		if People.Valid {
+			user.People = int(People.Int32)
+		}
+		if Active.Valid {
+			user.Active = int(Active.Int32)
+		}
+		if Ban.Valid {
+			user.Ban = int(Ban.Int32)
+		}
+		if Admin.Valid {
+			user.Admin = int(Admin.Int32)
+		}
+		if Address.Valid {
+			user.Address = int(Address.Int32)
+		}
+		if LastMessage.Valid {
+			user.LastMessage = LastMessage.Time
+		}
+		if State.Valid {
+			user.State = int(State.Int32)
+		}
+	} else {
+		// Если строки нет, возвращаем ошибку, что пользователь не найден
+		return utils.User{}, false, nil
 	}
-	if Photo.Valid {
-		user.Photo = Photo.String
-	}
-	if RecMess.Valid {
-		user.RecMess = RecMess.String
-	}
-	if RecMess.Valid {
-		user.About = About.String
-	}
-	if Score.Valid {
-		user.Score = int(Score.Int32)
-	}
-	if People.Valid {
-		user.People = int(People.Int32)
-	}
-	if Active.Valid {
-		user.Active = int(Active.Int32)
-	}
-	if Ban.Valid {
-		user.Ban = int(Ban.Int32)
-	}
-	if Admin.Valid {
-		user.Admin = int(Admin.Int32)
-	}
-	if Address.Valid {
-		user.Address = int(Address.Int32)
-	}
-	if LastMessage.Valid {
-		user.LastMessage = LastMessage.Time
-	}
-	if State.Valid {
-		user.State = int(State.Int32)
+	// Проверка на ошибки после обхода строк
+	if err := rows.Err(); err != nil {
+		return utils.User{}, false, err
 	}
 
 	return user, true, nil
@@ -172,7 +178,7 @@ func AddUser(userid uint) (uint, error) {
 	RETURNING id
 `
 	var id uint
-	err := DB.QueryRow(context.Background(), query, userid, "", "", 0, 0, false, 0, false, "", time.Now(), 0, 0, "", "").Scan(&id)
+	err := DB.QueryRow(context.Background(), query, userid, "", "", 0, 0, 0, 0, 0, 0, time.Now(), 0, 0, "", "").Scan(&id)
 	if err != nil {
 		return 0, fmt.Errorf("failed to insert user: %w", err)
 	}

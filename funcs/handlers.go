@@ -52,6 +52,7 @@ func Handle(event utils.Event, user utils.User, keyboards keyboard.Keyboards) {
 			}
 		}
 	}
+
 	switch user.State {
 	case utils.NAME_STATE:
 		handleNameState(event, user)

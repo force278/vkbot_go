@@ -57,7 +57,6 @@ func LoggingMiddleware(next http.Handler) http.Handler {
 			http.Error(w, "Unsupported event type", http.StatusBadRequest)
 			return
 		}
-
 		// Получаем пользователя из базы данных
 		var userExist bool
 		user, userExist, err = database.GetUser(userID)
@@ -84,8 +83,8 @@ func LoggingMiddleware(next http.Handler) http.Handler {
 		ctx := context.WithValue(r.Context(), eventContextKey, event)
 		ctx = context.WithValue(ctx, userContextKey, user)
 		r = r.WithContext(ctx)
-
 		// Вызываем следующий обработчик
+
 		next.ServeHTTP(w, r)
 	})
 }
@@ -141,10 +140,11 @@ func callbackHandler(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "No user found in context", http.StatusInternalServerError)
 		return
 	}
-
+	w.WriteHeader(http.StatusOK)
+	fmt.Fprint(w, "ok")
 	switch event.Type {
 	case "message_new":
-		funcs.Handle(event, user, keyboards)
+		go funcs.Handle(event, user, keyboards)
 	case "message_deny":
 		// Обработка события deny
 	case "message_allow":
@@ -155,6 +155,4 @@ func callbackHandler(w http.ResponseWriter, r *http.Request) {
 		// Обработка неизвестного события
 	}
 
-	w.WriteHeader(http.StatusOK)
-	fmt.Fprint(w, "ok")
 }
