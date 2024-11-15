@@ -43,6 +43,11 @@ func LoggingMiddleware(next http.Handler) http.Handler {
 
 		// Логируем информацию о запросе
 		log.Printf("Received request: %+v", event)
+		if event.Type == "confirmation" {
+			w.WriteHeader(http.StatusOK)
+			fmt.Fprint(w, "29c03f7b")
+			return
+		}
 
 		var user utils.User
 		var userID uint
@@ -140,18 +145,23 @@ func callbackHandler(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "No user found in context", http.StatusInternalServerError)
 		return
 	}
-	w.WriteHeader(http.StatusOK)
-	fmt.Fprint(w, "ok")
+
 	switch event.Type {
 	case "message_new":
+		w.WriteHeader(http.StatusOK)
+		fmt.Fprint(w, "ok")
 		go funcs.Handle(event, user, keyboards)
 	case "message_deny":
+		w.WriteHeader(http.StatusOK)
+		fmt.Fprint(w, "ok")
 		// Обработка события deny
 	case "message_allow":
+		w.WriteHeader(http.StatusOK)
+		fmt.Fprint(w, "ok")
 		// Обработка события allow
-	case "confirmation":
-		// Обработка события confirmation
 	default:
+		w.WriteHeader(http.StatusOK)
+		fmt.Fprint(w, "ok")
 		// Обработка неизвестного события
 	}
 

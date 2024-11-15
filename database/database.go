@@ -407,14 +407,14 @@ func AddGrade(userid uint, valuerid uint, grade int, message *string) error {
 		messageValue = sql.NullString{Valid: false} // Устанавливаем Valid в false для NULL
 	}
 
-	query := `INSERT INTO grades (userid, valuerid, grade, message) VALUES ($1, $2, $3, \\$4)`
+	query := `INSERT INTO grades (userid, valuerid, grade, message) VALUES ($1, $2, $3, $4)`
 	_, err := DB.Exec(ctx, query, userid, valuerid, grade, messageValue)
 	if err != nil {
 		log.Printf("Ошибка выполнения запроса AddGrade: %v", err)
 		return err
 	}
 
-	query = `INSERT INTO history (User ID, ValuerID) VALUES ($1, $2)`
+	query = `INSERT INTO history (UserID, ValuerID) VALUES ($1, $2)`
 	_, err = DB.Exec(ctx, query, userid, valuerid)
 	if err != nil {
 		log.Printf("Ошибка выполнения запроса AddGrade insert history: %v", err)
@@ -544,8 +544,6 @@ ORDER BY grades.message LIMIT 5`
 		}
 
 	}
-	fmt.Printf("%+v\n", grades)
-	fmt.Printf("%+v\n", valuers)
 	for i := range grades {
 		grades[i].Valuer = valuers[i] // Изменяем элемент среза напрямую по индексу
 	}
@@ -789,6 +787,20 @@ func DeleteAbout(userid uint) error {
 	}
 
 	return nil // Успешное обновление
+}
+
+func AddHistory(userid uint, valuerid uint) error {
+	if DB == nil {
+		return fmt.Errorf("database connection is not established")
+	}
+	ctx := context.Background()
+	query := `INSERT INTO history (UserID, ValuerID) VALUES ($1, $2)`
+	_, err := DB.Exec(ctx, query, userid, valuerid)
+	if err != nil {
+		log.Printf("Ошибка выполнения запроса Addhistory: %v", err)
+		return err
+	}
+	return nil
 }
 
 func AddStateColumnIfNotExists() error {

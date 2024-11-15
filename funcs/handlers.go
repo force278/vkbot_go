@@ -154,6 +154,12 @@ func handleMenuState(event utils.Event, user utils.User, keyboards keyboard.Keyb
 		database.UpdateState(user.UserID, utils.MENU_STATE)
 		keyboard, _ := keyboards.KeyboardMain.ToJSON()
 		SendMessage(user.UserID, "Меню:", keyboard)
+	default:
+		{
+			database.UpdateState(user.UserID, utils.MENU_STATE)
+			keyboard, _ := keyboards.KeyboardMain.ToJSON()
+			SendMessage(user.UserID, "Меню:", keyboard)
+		}
 	}
 
 }
@@ -296,7 +302,14 @@ func handleChangeState(event utils.Event, user utils.User, keyboards keyboard.Ke
 		database.UpdateState(user.UserID, utils.MENU_STATE)
 		keyboard, _ := keyboards.KeyboardMain.ToJSON()
 		SendMessage(user.UserID, "Меню:", keyboard)
+	default:
+		{
+			database.UpdateState(user.UserID, utils.MENU_STATE)
+			keyboard, _ := keyboards.KeyboardMain.ToJSON()
+			SendMessage(user.UserID, "Меню:", keyboard)
+		}
 	}
+
 }
 
 func handleSubscription(user utils.User, keyboards keyboard.Keyboards) {
@@ -373,7 +386,7 @@ func handleGoState(event utils.Event, user utils.User, keyboards keyboard.Keyboa
 	case `{"value":"grade_report"}`:
 		database.UpdateState(user.UserID, utils.COMPLAINT_STATE)
 		keyboard, _ := keyboards.KeyboardReportChoose.ToJSON()
-		SendMessage(user.UserID, "Введите причину жалобы текстом!\nИли выберите из предложенного", keyboard)
+		SendMessage(user.UserID, "Выберите из предложенного", keyboard)
 	case `{"value":"grade_message"}`:
 		database.UpdateState(user.UserID, utils.GO_MESSAGE_STATE)
 		keyboard, _ := keyboards.KeyboardBack.ToJSON()
@@ -410,6 +423,12 @@ func handleGoState(event utils.Event, user utils.User, keyboards keyboard.Keyboa
 	case `{"value":"grade_10"}`:
 		createGrade(10, user, "")
 		goGrade(user, keyboards, "")
+	default:
+		{
+			database.UpdateState(user.UserID, utils.MENU_STATE)
+			keyboard, _ := keyboards.KeyboardMain.ToJSON()
+			SendMessage(user.UserID, "Меню:", keyboard)
+		}
 	}
 }
 
@@ -463,7 +482,16 @@ func handleComplaintState(event utils.Event, user utils.User, keyboards keyboard
 		adminMessage = fmt.Sprintf("Жалоба (Спам) от %s|%d на %s|%d", user.Name, user.UserID, rec_user.Name, user.RecUser)
 	case `{"value":"back"}`:
 		goGrade(user, keyboards, "")
+		return
+	default:
+		{
+			database.UpdateState(user.UserID, utils.MENU_STATE)
+			keyboard, _ := keyboards.KeyboardMain.ToJSON()
+			SendMessage(user.UserID, "Меню:", keyboard)
+			return
+		}
 	}
+	database.AddHistory(rec_user.UserID, user.UserID)
 	SendPhoto(config.AppConfig.ReportAdmin, rec_user.Photo, adminMessage, "")
 	goGrade(user, keyboards, "Спасибо за жалобу, мы рассмотрим его в ближайшее время!")
 }
@@ -488,6 +516,12 @@ func handleChangeAddressState(event utils.Event, user utils.User, keyboards keyb
 		database.UpdateState(user.UserID, utils.MENU_STATE)
 		keyboard, _ := keyboards.KeyboardMain.ToJSON()
 		SendMessage(user.UserID, "Меню:", keyboard)
+	default:
+		{
+			database.UpdateState(user.UserID, utils.MENU_STATE)
+			keyboard, _ := keyboards.KeyboardMain.ToJSON()
+			SendMessage(user.UserID, "Меню:", keyboard)
+		}
 	}
 }
 
@@ -507,6 +541,12 @@ func handleTopState(event utils.Event, user utils.User, keyboards keyboard.Keybo
 		keyboard, _ := keyboards.KeyboardMain.ToJSON()
 		database.UpdateState(user.UserID, utils.MENU_STATE)
 		SendMessage(user.UserID, "Меню", keyboard)
+	default:
+		{
+			database.UpdateState(user.UserID, utils.MENU_STATE)
+			keyboard, _ := keyboards.KeyboardMain.ToJSON()
+			SendMessage(user.UserID, "Меню:", keyboard)
+		}
 	}
 }
 
@@ -804,6 +844,12 @@ func handleGoMessageGradeState(event utils.Event, user utils.User, keyboards key
 			createGrade(10, user, user.RecMess)
 			goGrade(user, keyboards, "")
 		}
+	default:
+		{
+			database.UpdateState(user.UserID, utils.MENU_STATE)
+			keyboard, _ := keyboards.KeyboardMain.ToJSON()
+			SendMessage(user.UserID, "Меню:", keyboard)
+		}
 	}
 }
 
@@ -920,6 +966,12 @@ func handleChangeAboutState(event utils.Event, user utils.User, keyboards keyboa
 				keyboard, _ := keyboards.KeyboardProfile.ToJSON()
 				SendMessage(user.UserID, "Изменения отменены", keyboard)
 				return
+			}
+		default:
+			{
+				database.UpdateState(user.UserID, utils.MENU_STATE)
+				keyboard, _ := keyboards.KeyboardMain.ToJSON()
+				SendMessage(user.UserID, "Меню:", keyboard)
 			}
 		}
 	}
