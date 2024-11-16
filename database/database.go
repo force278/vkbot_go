@@ -239,13 +239,10 @@ func GetRec(userid uint) (utils.User, bool, error) {
 	}
 
 	query := `
-	SELECT * FROM bibinto 
-	WHERE userid = (
-		SELECT userid FROM stack 
-		WHERE userid NOT IN (SELECT userid FROM history WHERE valuerid = $1) 
-		AND userid <> $1 
-		ORDER BY id DESC LIMIT 1
-	)`
+	SELECT * FROM bibinto WHERE userid IN (
+    SELECT userid FROM stack 
+    WHERE userid NOT IN (SELECT userid FROM history WHERE valuerid = $1) AND userid <> $1 
+    ORDER BY id DESC) AND name IS NOT NULL AND name <> '' AND photo IS NOT NULL AND photo <> '' LIMIT 1 ;`
 
 	row := DB.QueryRow(context.Background(), query, userid)
 
@@ -255,9 +252,7 @@ func GetRec(userid uint) (utils.User, bool, error) {
 	var LastMessage sql.NullTime
 
 	if err := row.Scan(&user.ID, &user.UserID, &Name, &Photo, &Score, &People, &Active, &Ban, &Admin, &Address, &Sub, &LastMessage, &State, &user.RecUser, &RecMess, &About); err != nil {
-		if err == sql.ErrNoRows {
-			return utils.User{}, false, nil // Пользователь не найден
-		}
+		log.Printf("ошибка в getRec scan:%s", err)
 		return utils.User{}, false, nil
 	}
 
