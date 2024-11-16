@@ -62,6 +62,33 @@ func SendPhoto(userID uint, photo string, message string, keyboard string) {
 	//body, _ := io.ReadAll(res.Body) // Читаем тело ответа для диагностики
 }
 
+func SendPhotos(userID uint, photos []string, message string, keyboard string) {
+	params := url.Values{}
+	params.Set("access_token", config.AppConfig.Token)
+	params.Set("user_id", fmt.Sprintf("%d", userID))
+
+	// Объединяем все фотографии в одну строку, разделяя их запятыми
+	if len(photos) > 0 {
+		params.Set("attachment", strings.Join(photos, ","))
+	}
+
+	params.Set("message", message)
+	if keyboard != "" {
+		params.Set("keyboard", keyboard)
+	}
+	params.Set("random_id", fmt.Sprintf("%d", time.Now().UnixNano())) // Уникальный ID для каждой отправки сообщения
+	params.Set("v", config.AppConfig.ApiVersion)
+
+	res, err := http.PostForm("https://api.vk.com/method/messages.send", params)
+	if err != nil {
+		fmt.Println("Ошибка отправки сообщения:", err)
+		return
+	}
+	defer res.Body.Close() // Закрываем тело ответа после обработки
+
+	//body, _ := io.ReadAll(res.Body) // Читаем тело ответа для диагностики
+}
+
 // Получение URL загрузки для фотографий
 func GetUploadServer() string {
 	params := url.Values{}

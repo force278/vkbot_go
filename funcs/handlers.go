@@ -589,17 +589,14 @@ func handleTopPosition(index int, user utils.User, keyboards keyboard.Keyboards)
 
 func handleTop10(user utils.User, keyboards keyboard.Keyboards) {
 	top10, _ := database.Top10()
-	var photos string
-	for _, photo := range top10 {
-		photos = fmt.Sprintf("%s, %s", photos, photo)
-	}
-	if photos == "" {
+
+	if len(top10) < 1 {
 		database.UpdateState(user.UserID, utils.MENU_STATE)
 		keyboard, _ := keyboards.KeyboardMain.ToJSON()
 		SendMessage(user.UserID, "Топ пока не сформирован", keyboard)
 		return
 	}
-	SendPhoto(user.UserID, photos, "", "")
+	SendPhotos(user.UserID, top10, "", "")
 }
 
 func handleMyTopPosition(user utils.User) {

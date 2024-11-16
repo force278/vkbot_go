@@ -421,21 +421,37 @@ func AddGrade(userid uint, valuerid uint, grade int, message *string) error {
 		return err
 	}
 
+	query = `INSERT INTO stack (UserID) VALUES ($1)`
+	_, err = DB.Exec(ctx, query, valuerid)
+	if err != nil {
+		log.Printf("Ошибка выполнения запроса AddGrade insert stack: %v", err)
+		return err
+	}
+
+	user, _, _ := GetUser(userid)
+	user.People = user.People + 1
+	user.Score = user.Score + grade
+	UpdateUser(user)
+
 	return nil
 }
 
-// GetGrades получает оценки пользователя
 func GetGrades(userid uint) ([]utils.Grade, error) {
 	if DB == nil {
 		return nil, fmt.Errorf("database connection is not established")
 	}
+
 	// Начинаем транзакцию
 	tx, err := DB.Begin(context.Background())
 	if err != nil {
-		fmt.Printf("Ошибка при начале транзакции: %v\n", err)
-		return nil, err
+		return nil, fmt.Errorf("ошибка при начале транзакции: %w", err)
 	}
-	defer tx.Rollback(context.Background()) // Откат транзакции в случае ошибки
+	defer func() {
+		if err != nil {
+			tx.Rollback(context.Background())
+		}
+	}()
+
 	// Получаем пять последних оценок
 	query := `SELECT grades.id, grades.userid, grades.valuerid, grades.grade, grades.message 
 FROM grades 
@@ -444,29 +460,45 @@ WHERE grades.userid = $1
 ORDER BY grades.message LIMIT 5`
 	rows, err := tx.Query(context.Background(), query, userid)
 	if err != nil {
-		fmt.Printf("Ошибка выполнения запроса на получение оценок: %v\n", err)
-		return nil, err
+		return nil, fmt.Errorf("ошибка выполнения запроса на получение оценок: %w", err)
 	}
 	defer rows.Close()
 
 	var grades []utils.Grade
 	var ids []uint                   // Для хранения ID оценок, которые нужно удалить
 	idMap := make(map[uint]struct{}) // Используем map для отслеживания уникальных
+
 	for rows.Next() {
+		var messageValue sql.NullString
 		var g utils.Grade
-		if err := rows.Scan(&g.ID, &g.UserID, &g.ValuerID, &g.Grade, &g.Message); err != nil {
-			fmt.Printf("Ошибка при сканировании строки: %v\n", err)
-			return nil, err
+		if err := rows.Scan(&g.ID, &g.UserID, &g.ValuerID, &g.Grade, &messageValue); err != nil {
+			return nil, fmt.Errorf("ошибка при сканировании строки: %w", err)
+		}
+		if messageValue.Valid {
+			g.Message = messageValue.String
 		}
 		// Проверяем уникальность ID
-		if _, exists := idMap[g.UserID]; !exists {
-			grades = append(grades, g)   // Добавляем оценку в срез, если ID уникален
-			idMap[g.UserID] = struct{}{} // Добавляем ID в map
+		if _, exists := idMap[g.ValuerID]; !exists {
+			grades = append(grades, g)     // Добавляем оценку в срез, если ID уникален
+			idMap[g.ValuerID] = struct{}{} // Добавляем ID в map
 		}
 		ids = append(ids, g.ID)
 	}
 
-	// Формируем строку запроса на удаление с правильным количеством параметров
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("ошибка при обработке строк: %w", err)
+	}
+
+	// Проверяем, есть ли оценки
+	if len(grades) == 0 {
+		// Подтверждаем транзакцию, если нет оценок
+		if err := tx.Commit(context.Background()); err != nil {
+			return nil, fmt.Errorf("ошибка при подтверждении транзакции: %w", err)
+		}
+		return grades, nil
+	}
+
+	// Формируем строку запроса на получение валидаторов
 	valuersQuery := "SELECT * FROM bibinto WHERE userid IN ("
 	for i := range grades {
 		if i > 0 {
@@ -484,70 +516,67 @@ ORDER BY grades.message LIMIT 5`
 
 	var valuers []utils.User
 
-	// Выполняем запрос на получение валидаторов, только если есть валидаторы
-	if len(grades) > 0 {
-		rows, err := tx.Query(context.Background(), valuersQuery, args...)
-		if err != nil {
-			fmt.Printf("Ошибка при выполнении запроса на получение валидаторов: %v\n", err)
-			return nil, err
-		}
-		defer rows.Close()
-
-		for rows.Next() {
-			var u utils.User
-			var Score, People, Active, Ban, Admin, Address, Sub, State sql.NullInt32
-			var Name, Photo, RecMess, About sql.NullString
-			var LastMessage sql.NullTime
-
-			if err := rows.Scan(&u.ID, &u.UserID, &Name, &Photo, &Score, &People, &Active, &Ban, &Admin, &Address, &Sub, &LastMessage, &State, &u.RecUser, &RecMess, &About); err != nil {
-				fmt.Printf("Ошибка при сканировании строки: %v\n", err)
-				return nil, err
-			}
-			// Присваиваем значения полям структуры user
-			if Name.Valid {
-				u.Name = Name.String
-			}
-			if Photo.Valid {
-				u.Photo = Photo.String
-			}
-			if RecMess.Valid {
-				u.RecMess = RecMess.String
-			}
-			if About.Valid {
-				u.About = About.String
-			}
-			if Score.Valid {
-				u.Score = int(Score.Int32)
-			}
-			if People.Valid {
-				u.People = int(People.Int32)
-			}
-			if Active.Valid {
-				u.Active = int(Active.Int32)
-			}
-			if Ban.Valid {
-				u.Ban = int(Ban.Int32)
-			}
-			if Admin.Valid {
-				u.Admin = int(Admin.Int32)
-			}
-			if Address.Valid {
-				u.Address = int(Address.Int32)
-			}
-			if LastMessage.Valid {
-				u.LastMessage = LastMessage.Time
-			}
-			if State.Valid {
-				u.State = int(State.Int32)
-			}
-			valuers = append(valuers, u)
-		}
-
+	// Выполняем запрос на получение валидаторов
+	rows, err = tx.Query(context.Background(), valuersQuery, args...)
+	if err != nil {
+		return nil, fmt.Errorf("ошибка при выполнении запроса на получение валидаторов: %w", err)
 	}
+	defer rows.Close()
+
+	for rows.Next() {
+		var u utils.User
+		var Score, People, Active, Ban, Admin, Address, Sub, State sql.NullInt32
+		var Name, Photo, RecMess, About sql.NullString
+		var LastMessage sql.NullTime
+
+		if err := rows.Scan(&u.ID, &u.UserID, &Name, &Photo, &Score, &People, &Active, &Ban, &Admin, &Address, &Sub, &LastMessage, &State, &u.RecUser, &RecMess, &About); err != nil {
+			return nil, fmt.Errorf("ошибка при сканировании строки: %w", err)
+		}
+		// Присваиваем значения полям структуры user
+		if Name.Valid {
+			u.Name = Name.String
+		}
+		if Photo.Valid {
+			u.Photo = Photo.String
+		}
+		if RecMess.Valid {
+			u.RecMess = RecMess.String
+		}
+		if About.Valid {
+			u.About = About.String
+		}
+		if Score.Valid {
+			u.Score = int(Score.Int32)
+		}
+		if People.Valid {
+			u.People = int(People.Int32)
+		}
+		if Active.Valid {
+			u.Active = int(Active.Int32)
+		}
+		if Ban.Valid {
+			u.Ban = int(Ban.Int32)
+		}
+		if Admin.Valid {
+			u.Admin = int(Admin.Int32)
+		}
+		if Address.Valid {
+			u.Address = int(Address.Int32)
+		}
+		if LastMessage.Valid {
+			u.LastMessage = LastMessage.Time
+		}
+		if State.Valid {
+			u.State = int(State.Int32)
+		}
+		valuers = append(valuers, u)
+	}
+
 	for i := range grades {
 		grades[i].Valuer = valuers[i] // Изменяем элемент среза напрямую по индексу
 	}
-	// Удаляем полученные оценки, если они есть
+
+	// Удаляем полученные оценки
 	if len(ids) > 0 {
 		// Формируем строку запроса на удаление с правильным количеством параметров
 		deleteQuery := "DELETE FROM grades WHERE id IN ("
@@ -555,29 +584,26 @@ ORDER BY grades.message LIMIT 5`
 			if i > 0 {
 				deleteQuery += ", "
 			}
-			deleteQuery += fmt.Sprintf("$%d", i+1) // Параметры начинаются с $1
+			deleteQuery += fmt.Sprintf("$%d", i+1) // Параметры начинаются с \$1
 		}
 		deleteQuery += ");"
 
 		// Преобразуем ids в срез interface{}
-		args := make([]interface{}, len(ids))
+		deleteArgs := make([]interface{}, len(ids))
 		for i, id := range ids {
-			args[i] = id
+			deleteArgs[i] = id
 		}
 
 		// Выполняем удаление оценок
-		if _, err := tx.Exec(context.Background(), deleteQuery, args...); err != nil {
-			fmt.Printf("Ошибка при удалении оценок: %v\n", err)
-			return nil, err
+		if _, err := tx.Exec(context.Background(), deleteQuery, deleteArgs...); err != nil {
+			return nil, fmt.Errorf("ошибка при удалении оценок: %w", err)
 		}
 	}
 
 	// Подтверждаем транзакцию
 	if err := tx.Commit(context.Background()); err != nil {
-		fmt.Printf("Ошибка при подтверждении транзакции: %v\n", err)
-		return nil, err
+		return nil, fmt.Errorf("ошибка при подтверждении транзакции: %w", err)
 	}
-
 	return grades, nil
 }
 
