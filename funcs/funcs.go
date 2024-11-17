@@ -11,6 +11,7 @@ import (
 	"strings"
 	"time"
 	"vkbot/config"
+	"vkbot/database"
 	"vkbot/utils"
 )
 
@@ -41,7 +42,6 @@ func SendMessage(userID uint, message string, keyboard string) {
 
 // Отправка фотографии пользователю
 func SendPhoto(userID uint, photo string, message string, keyboard string) {
-	fmt.Print(message)
 	params := url.Values{}
 	params.Set("access_token", config.AppConfig.Token)
 	params.Set("user_id", fmt.Sprintf("%d", userID))
@@ -88,6 +88,45 @@ func SendPhotos(userID uint, photos []string, message string, keyboard string) {
 	defer res.Body.Close() // Закрываем тело ответа после обработки
 
 	//body, _ := io.ReadAll(res.Body) // Читаем тело ответа для диагностики
+}
+
+func SendMessageForAll(message string) {
+	users, err := database.GetAllUsers()
+	if err != nil {
+		fmt.Println("Ошибка получения пользователей:", err)
+		return
+	}
+
+	// Разбиваем пользователей на группы по 100
+	const batchSize = 100
+	for i := 0; i < len(users); i += batchSize {
+		end := i + batchSize
+		if end > len(users) {
+			end = len(users)
+		}
+
+		// Формируем список user_ids для текущей группы
+		userIDs := users[i:end]
+		params := url.Values{}
+		params.Set("access_token", config.AppConfig.Token)
+		params.Set("user_ids", fmt.Sprintf("%v", userIDs)) // Форматируем как срез
+		params.Set("message", message)
+		params.Set("random_id", fmt.Sprintf("%d", time.Now().UnixNano())) // Уникальный ID для каждой отправки сообщения
+		params.Set("v", config.AppConfig.ApiVersion)
+
+		// Отправляем запрос
+		res, err := http.PostForm("https://api.vk.com/method/messages.send", params)
+		if err != nil {
+			fmt.Println("Ошибка отправки сообщения:", err)
+			continue // Переходим к следующей группе
+		}
+		defer res.Body.Close() // Закрываем тело ответа после обработки
+
+		if res.StatusCode != http.StatusOK {
+			body, _ := io.ReadAll(res.Body) // Читаем тело ответа для диагностики
+			fmt.Printf("Ошибка SendMessage: %d, ответ: %s\n", res.StatusCode, string(body))
+		}
+	}
 }
 
 // Получение URL загрузки для фотографий

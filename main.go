@@ -107,6 +107,10 @@ func main() {
 		log.Println("Ошибка загрузки конфигурации:", err)
 		return
 	}
+	port := os.Getenv("PORT")
+	if port == "" {
+		port = "8080" // Порт по умолчанию
+	}
 
 	database.Connect()
 	defer database.Disconnect()
@@ -126,7 +130,8 @@ func main() {
 		mux.HandleFunc("/callback", callbackHandler)
 		loggedMux := LoggingMiddleware(mux)
 		log.Println("Сервер запущен на порту 8080")
-		if err := http.ListenAndServe(":8080", loggedMux); err != nil {
+		portString := fmt.Sprintf(":%s", port)
+		if err := http.ListenAndServe(portString, loggedMux); err != nil {
 			log.Fatal(err)
 		}
 	}()

@@ -48,7 +48,8 @@ func Handle(event utils.Event, user utils.User, keyboards keyboard.Keyboards) {
 			}
 		case "рассылка123":
 			{
-
+				message := `Тебя оценили новые люди! Нажимай "Оценивать", чтобы посмотреть их.`
+				SendMessageForAll(message)
 			}
 		}
 	}

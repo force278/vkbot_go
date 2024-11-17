@@ -844,6 +844,29 @@ func AddHistory(userid uint, valuerid uint) error {
 	return nil
 }
 
+func GetAllUsers() ([]uint, error) {
+	if DB == nil {
+		return []uint{}, fmt.Errorf("database connection is not established")
+	}
+	var usersIds []uint
+	Query := `SELECT DISTINCT b.userid FROM bibinto AS b JOIN grade AS g ON b.userid = g.userid WHERE b.ban IS NOT NULL AND b.ban <> 1;`
+	// Выполняем запрос на получение ифны о пользователях
+	rows, err := DB.Query(context.Background(), Query)
+	if err != nil {
+		return []uint{}, fmt.Errorf("ошибка при выполнении запроса на всех пользователей: %w", err)
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		var uId uint
+		if err := rows.Scan(&uId); err != nil {
+			return []uint{}, fmt.Errorf("ошибка при сканировании строки: %w", err)
+		}
+		usersIds = append(usersIds, uId)
+	}
+	return usersIds, nil
+}
+
 func AddStateColumnIfNotExists() error {
 	if DB == nil {
 		return fmt.Errorf("database connection is not established")
