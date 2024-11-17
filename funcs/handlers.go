@@ -109,6 +109,7 @@ func handleNameState(event utils.Event, user utils.User) {
 		return
 	}
 	user.Name = message
+	user.Admin, user.Ban, user.Sub, user.Address = -1, -1, -1, -1
 	database.UpdateUser(user)
 	database.UpdateState(user.UserID, utils.PHOTO_STATE)
 	SendMessage(user.UserID, "Теперь отправь фото, которое будут оценивать другие пользователи", "")
@@ -127,6 +128,7 @@ func handlePhotoState(event utils.Event, user utils.User, keyboards keyboard.Key
 			user.Photo = photo
 			user.State = utils.MENU_STATE
 			database.AddStack(user.UserID)
+			user.Admin, user.Ban, user.Sub, user.Address = -1, -1, -1, -1
 			database.UpdateUser(user)
 			keyboard, _ := keyboards.KeyboardMain.ToJSON()
 			SendMessage(user.UserID, "Твоя анкета заполнена.\nМеню:", keyboard)
@@ -178,7 +180,7 @@ func handleGoGrade(user utils.User, keyboards keyboard.Keyboards) {
 	message := ""
 	if user.Sub == 1 {
 		addressString := fmt.Sprintf("\n📎Ссылка на страницу: @id%d(%s)", rec_user.UserID, rec_user.Name)
-		message = fmt.Sprintf("%s %s", message, addressString)
+		message = fmt.Sprintf("%s%s", message, addressString)
 	}
 	if rec_user.About != "" {
 		message = fmt.Sprintf("%s\n💭:%s\n", message, rec_user.About)
@@ -191,6 +193,7 @@ func handleGoGrade(user utils.User, keyboards keyboard.Keyboards) {
 	}
 	user.RecUser = rec_user.UserID
 	user.State = utils.GO_STATE
+	user.Admin, user.Ban, user.Sub, user.Address = -1, -1, -1, -1
 	database.UpdateUser(user)
 	SendPhoto(user.UserID, rec_user.Photo, message, keyboard)
 }
@@ -277,6 +280,7 @@ func handleChangeState(event utils.Event, user utils.User, keyboards keyboard.Ke
 		if user.Sub != 1 {
 			result, _ := CheckBuySub(user.UserID)
 			if result {
+				user.Admin, user.Ban, user.Address = -1, -1, -1
 				user.Sub = 1
 				database.UpdateUser(user)
 				keyboard, _ := keyboards.KeyboardProfile.ToJSON()
@@ -336,6 +340,7 @@ func handleChangeNameState(event utils.Event, user utils.User) {
 	}
 	user.Name = text
 	user.State = utils.CHANGE_STATE
+	user.Admin, user.Ban, user.Sub, user.Address = -1, -1, -1, -1
 	database.UpdateUser(user)
 	SendMessage(user.UserID, "Имя успешно изменено", "")
 }
@@ -370,6 +375,7 @@ func handleChangePhotoUploadState(event utils.Event, user utils.User, keyboards 
 			photo := UploadPhoto(uploadURL, *attachment.Photo, user.UserID)
 			user.Photo = photo
 			user.State = utils.MENU_STATE
+			user.Admin, user.Ban, user.Sub, user.Address = -1, -1, -1, -1
 			database.UpdateUser(user)
 			keyboard, _ := keyboards.KeyboardMain.ToJSON()
 			SendMessage(user.UserID, "Фото успешно изменено.\nМеню:", keyboard)
@@ -440,7 +446,7 @@ func handleGradeBan(user utils.User, keyboards keyboard.Keyboards) {
 		return
 	}
 	database.Ban(uint64(user.RecUser))
-	message := fmt.Sprintf("Предыдущий пользователь забанен!\nЕго id: %d\n\n📎Ссылка на страницу: @id%d(%s)", user.RecUser, user.RecUser, "Профиль")
+	message := fmt.Sprintf("Предыдущий пользователь забанен!\nЕго id: %d\n\n", user.RecUser)
 	rec_user, recExists, err := database.GetRec(user.UserID)
 	if err != nil {
 		fmt.Printf("Ошибка в MENU_STATE go_grade %s", err)
@@ -466,6 +472,7 @@ func handleGradeBan(user utils.User, keyboards keyboard.Keyboards) {
 	}
 	user.RecUser = rec_user.UserID
 	user.State = utils.GO_STATE
+	user.Admin, user.Ban, user.Sub, user.Address = -1, -1, -1, -1
 	database.UpdateUser(user)
 	SendPhoto(user.UserID, rec_user.Photo, message, keyboard)
 }
@@ -499,12 +506,16 @@ func handleComplaintState(event utils.Event, user utils.User, keyboards keyboard
 func handleChangeAddressState(event utils.Event, user utils.User, keyboards keyboard.Keyboards) {
 	switch event.Object.Message.Payload {
 	case `{"value":"yes"}`:
+		user.Admin, user.Ban, user.Sub = -1, -1, -1
 		user.Address = 1
 		user.State = utils.CHANGE_STATE
-		database.UpdateUser(user)
+		if err := database.UpdateUser(user); err != nil {
+			fmt.Print(err)
+		}
 		keyboard, _ := keyboards.KeyboardProfile.ToJSON()
 		SendMessage(user.UserID, "Теперь ваша ссылка ВИДНА другим пользователям.", keyboard)
 	case `{"value":"no"}`:
+		user.Admin, user.Ban, user.Sub = -1, -1, -1
 		user.Address = 0
 		user.State = utils.CHANGE_STATE
 		database.UpdateUser(user)
@@ -622,6 +633,7 @@ func handleGoMessageState(event utils.Event, user utils.User, keyboards keyboard
 		}
 		user.RecUser = rec_user.UserID
 		user.State = utils.GO_STATE
+		user.Admin, user.Ban, user.Sub, user.Address = -1, -1, -1, -1
 		database.UpdateUser(user)
 		SendPhoto(user.UserID, rec_user.Photo, message, keyboard)
 	default:
@@ -640,6 +652,7 @@ func handleGoMessageText(event utils.Event, user utils.User, keyboards keyboard.
 	}
 	user.State = utils.GO_MESSAGE_GRADE_STATE
 	user.RecMess = event.Object.Message.Text
+	user.Admin, user.Ban, user.Sub, user.Address = -1, -1, -1, -1
 	database.UpdateUser(user)
 	var keyboard string
 	if user.Admin == 1 {
@@ -715,6 +728,7 @@ func goGrade(user utils.User, keyboards keyboard.Keyboards, extraMessage string)
 	}
 	user.RecUser = rec_user.UserID
 	user.State = utils.GO_STATE
+	user.Admin, user.Ban, user.Sub, user.Address = -1, -1, -1, -1
 	database.UpdateUser(user)
 	SendPhoto(user.UserID, rec_user.Photo, message, keyboard)
 }
@@ -737,6 +751,7 @@ func handleGoMessageGradeState(event utils.Event, user utils.User, keyboards key
 			}
 			user.RecUser = rec_user.UserID
 			user.State = utils.GO_STATE
+			user.Admin, user.Ban, user.Sub, user.Address = -1, -1, -1, -1
 			database.UpdateUser(user)
 			SendPhoto(user.UserID, rec_user.Photo, message, keyboard)
 		}
@@ -755,7 +770,7 @@ func handleGoMessageGradeState(event utils.Event, user utils.User, keyboards key
 				return
 			}
 			database.Ban(uint64(user.RecUser))
-			message := fmt.Sprintf("Предыдущий пользователь забанен!\nЕго id: %d\n\n📎Ссылка на страницу: @id%d(%s)", user.RecUser, user.RecUser, "Профиль")
+			message := fmt.Sprintf("Предыдущий пользователь забанен!\nЕго id: %d\n", user.RecUser)
 			rec_user, recExists, err := database.GetRec(user.UserID)
 			if err != nil {
 				fmt.Printf("Ошибка в MENU_STATE go_grade %s", err)
@@ -778,6 +793,7 @@ func handleGoMessageGradeState(event utils.Event, user utils.User, keyboards key
 			}
 			user.RecUser = rec_user.UserID
 			user.State = utils.GO_STATE
+			user.Admin, user.Ban, user.Sub, user.Address = -1, -1, -1, -1
 			database.UpdateUser(user)
 			SendPhoto(user.UserID, rec_user.Photo, message, keyboard)
 		}
@@ -986,6 +1002,7 @@ func handleChangeAboutState(event utils.Event, user utils.User, keyboards keyboa
 	}
 	user.About = message
 	user.State = utils.CHANGE_STATE
+	user.Admin, user.Ban, user.Sub, user.Address = -1, -1, -1, -1
 	database.UpdateUser(user)
 	keyboard, _ := keyboards.KeyboardProfile.ToJSON()
 	SendMessage(user.UserID, "Описание анкеты успешно изменено", keyboard)

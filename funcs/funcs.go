@@ -41,6 +41,7 @@ func SendMessage(userID uint, message string, keyboard string) {
 
 // Отправка фотографии пользователю
 func SendPhoto(userID uint, photo string, message string, keyboard string) {
+	fmt.Print(message)
 	params := url.Values{}
 	params.Set("access_token", config.AppConfig.Token)
 	params.Set("user_id", fmt.Sprintf("%d", userID))

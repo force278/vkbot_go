@@ -58,8 +58,8 @@ func CreateDatabaseAndTables() error {
 			people INT DEFAULT 0,
 			active BOOLEAN DEFAULT TRUE,
 			ban BOOLEAN DEFAULT FALSE,
-			admin BOOLEAN DEFAULT FALSE,
 			address TEXT,
+			admin BOOLEAN DEFAULT FALSE,
 			sub TEXT,
 			lastmessage TIMESTAMP,
 			state INT DEFAULT 0,
@@ -113,7 +113,7 @@ func GetUser(userid uint) (utils.User, bool, error) {
 	var LastMessage sql.NullTime
 	defer rows.Close()
 	if rows.Next() {
-		if err := rows.Scan(&user.ID, &user.UserID, &Name, &Photo, &Score, &People, &Active, &Ban, &Admin, &Address, &Sub, &LastMessage, &State, &user.RecUser, &RecMess, &About); err != nil {
+		if err := rows.Scan(&user.ID, &user.UserID, &Name, &Photo, &Score, &People, &Active, &Ban, &Address, &Admin, &Sub, &LastMessage, &State, &user.RecUser, &RecMess, &About); err != nil {
 			return utils.User{}, false, fmt.Errorf("failed to scan row: %v", err)
 		}
 
@@ -144,6 +144,9 @@ func GetUser(userid uint) (utils.User, bool, error) {
 		}
 		if Admin.Valid {
 			user.Admin = int(Admin.Int32)
+		}
+		if Sub.Valid {
+			user.Sub = int(Sub.Int32)
 		}
 		if Address.Valid {
 			user.Address = int(Address.Int32)
@@ -198,16 +201,29 @@ func UpdateUser(user utils.User) error {
 			photo = COALESCE(NULLIF($2, ''), photo),
 			score = COALESCE(NULLIF($3, -1), score),
 			people = COALESCE(NULLIF($4, -1), people),
-			ban = COALESCE($5, ban),
-			address = COALESCE($6, address),
-			admin = COALESCE($7, admin),
-			sub = COALESCE($8, sub),
+			active = COALESCE(active),
+			ban = CASE 
+              WHEN $5 = -1 THEN ban
+              ELSE $5 
+           END,
+		   address = CASE 
+              WHEN $6 = -1 THEN address 
+              ELSE $6 
+           END,
+			admin = CASE 
+              WHEN $7 = -1 THEN admin 
+              ELSE $7 
+           END,
+			sub = CASE 
+              WHEN $8 = -1 THEN sub
+              ELSE $8 
+           END,
 			lastmessage = COALESCE($9, lastmessage),
 			state = COALESCE($10, state),
 			recuser = COALESCE($11, recuser),
 			recmess = COALESCE($12, recmess),
 			about = COALESCE($13, about)
-		WHERE id = $14
+		WHERE userid = $14
 	`
 
 	_, err := DB.Exec(context.Background(), query,
@@ -224,9 +240,10 @@ func UpdateUser(user utils.User) error {
 		user.RecUser,
 		user.RecMess,
 		user.About,
-		user.ID,
+		user.UserID,
 	)
 	if err != nil {
+		fmt.Print(err)
 		return fmt.Errorf("failed to update user: %w", err)
 	}
 	return nil
@@ -239,11 +256,10 @@ func GetRec(userid uint) (utils.User, bool, error) {
 	}
 
 	query := `
-	SELECT * FROM bibinto WHERE userid IN (
+	SELECT * FROM bibinto WHERE userid = (
     SELECT userid FROM stack 
     WHERE userid NOT IN (SELECT userid FROM history WHERE valuerid = $1) AND userid <> $1 
-    ORDER BY id DESC) AND name IS NOT NULL AND name <> '' AND photo IS NOT NULL AND photo <> '' LIMIT 1 ;`
-
+    ORDER BY id DESC LIMIT 1);`
 	row := DB.QueryRow(context.Background(), query, userid)
 
 	var user utils.User
@@ -251,7 +267,7 @@ func GetRec(userid uint) (utils.User, bool, error) {
 	var Name, Photo, RecMess, About sql.NullString
 	var LastMessage sql.NullTime
 
-	if err := row.Scan(&user.ID, &user.UserID, &Name, &Photo, &Score, &People, &Active, &Ban, &Admin, &Address, &Sub, &LastMessage, &State, &user.RecUser, &RecMess, &About); err != nil {
+	if err := row.Scan(&user.ID, &user.UserID, &Name, &Photo, &Score, &People, &Active, &Ban, &Address, &Admin, &Sub, &LastMessage, &State, &user.RecUser, &RecMess, &About); err != nil {
 		log.Printf("ошибка в getRec scan:%s", err)
 		return utils.User{}, false, nil
 	}
@@ -338,8 +354,13 @@ func Ban(userid uint64) error {
 		return fmt.Errorf("database connection is not established")
 	}
 
-	query := `UPDATE bibinto SET ban = $1 WHERE userid = $2`
+	query := `UPDATE bibinto SET ban = $1 WHERE userid = $2;`
 	_, err := DB.Exec(context.Background(), query, 1, userid)
+	if err != nil {
+		return fmt.Errorf("failed to ban user: %w", err)
+	}
+	query = `DELETE FROM stack WHERE userid = $1;`
+	_, err = DB.Exec(context.Background(), query, userid)
 	if err != nil {
 		return fmt.Errorf("failed to ban user: %w", err)
 	}
@@ -365,7 +386,7 @@ func AddSub(userid uint64) error {
 		return fmt.Errorf("database connection is not established")
 	}
 
-	query := `UPDATE bibinto SET Sub = $1 WHERE userid = $2`
+	query := `UPDATE bibinto SET Sub = $1 WHERE userid = $2;`
 	_, err := DB.Exec(context.Background(), query, 1, userid)
 	if err != nil {
 		return fmt.Errorf("failed to ban user: %w", err)
@@ -416,16 +437,12 @@ func AddGrade(userid uint, valuerid uint, grade int, message *string) error {
 		return err
 	}
 
-	query = `INSERT INTO stack (UserID) VALUES ($1)`
-	_, err = DB.Exec(ctx, query, valuerid)
-	if err != nil {
-		log.Printf("Ошибка выполнения запроса AddGrade insert stack: %v", err)
-		return err
-	}
+	AddStack(valuerid)
 
 	user, _, _ := GetUser(userid)
 	user.People = user.People + 1
 	user.Score = user.Score + grade
+	user.Address, user.Ban, user.Sub, user.Admin = -1, -1, -1, -1
 	UpdateUser(user)
 
 	return nil
@@ -511,7 +528,7 @@ ORDER BY grades.message LIMIT 5`
 
 	var valuers []utils.User
 
-	// Выполняем запрос на получение валидаторов
+	// Выполняем запрос на получение ифны о пользователях
 	rows, err = tx.Query(context.Background(), valuersQuery, args...)
 	if err != nil {
 		return nil, fmt.Errorf("ошибка при выполнении запроса на получение валидаторов: %w", err)
@@ -623,7 +640,7 @@ func Top() ([]utils.User, error) {
 	var topUsers []utils.User
 	for rows.Next() {
 		var user utils.User
-		if err := rows.Scan(&user.ID, &user.UserID, &Name, &Photo, &Score, &People, &Active, &Ban, &Admin, &Address, &Sub, &LastMessage, &State, &user.RecUser, &RecMess, &About); err != nil {
+		if err := rows.Scan(&user.ID, &user.UserID, &Name, &Photo, &Score, &People, &Active, &Ban, &Address, &Admin, &Sub, &LastMessage, &State, &user.RecUser, &RecMess, &About); err != nil {
 			log.Printf("Ошибка при сканировании строки: %v\n", err)
 			return nil, err
 		}
@@ -654,6 +671,9 @@ func Top() ([]utils.User, error) {
 		}
 		if Admin.Valid {
 			user.Admin = int(Admin.Int32)
+		}
+		if Sub.Valid {
+			user.Sub = int(Sub.Int32)
 		}
 		if Address.Valid {
 			user.Address = int(Address.Int32)
