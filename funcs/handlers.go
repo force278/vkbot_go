@@ -48,8 +48,7 @@ func Handle(event utils.Event, user utils.User, keyboards keyboard.Keyboards) {
 			}
 		case "рассылка123":
 			{
-				message := `Тебя оценили новые люди! Нажимай "Оценивать", чтобы посмотреть их.`
-				SendMessageForAll(message)
+				//SendMessageForAll("🐨У тебя остались непросмотренные оценки, досмотри плиз🥺")
 			}
 		}
 	}
@@ -121,12 +120,15 @@ func handlePhotoState(event utils.Event, user utils.User, keyboards keyboard.Key
 		SendMessage(user.UserID, "Я жду фото", "")
 		return
 	}
+
+	// Получаем первое вложение
 	attachment := event.Object.Message.Attachments[0]
 	if attachment.Type == "photo" {
 		uploadURL := GetUploadServer()
 		if uploadURL != "" {
+			// Загружаем первую фотографию
 			photo := UploadPhoto(uploadURL, *attachment.Photo, user.UserID)
-			user.Photo = photo
+			user.Photo = photo // Сохраняем первую фотографию в профиль пользователя
 			user.State = utils.MENU_STATE
 			database.AddStack(user.UserID)
 			user.Admin, user.Ban, user.Sub, user.Address = -1, -1, -1, -1
@@ -134,6 +136,8 @@ func handlePhotoState(event utils.Event, user utils.User, keyboards keyboard.Key
 			keyboard, _ := keyboards.KeyboardMain.ToJSON()
 			SendMessage(user.UserID, "Твоя анкета заполнена.\nМеню:", keyboard)
 		}
+	} else {
+		SendMessage(user.UserID, "Первое вложение не является фотографией.", "")
 	}
 }
 
@@ -212,6 +216,7 @@ func handleMyGrades(user utils.User) {
 	for _, grade := range grades {
 		if grade.Valuer.Ban == 1 {
 			SendMessage(user.UserID, "👮‍♂️Оценка от забаненного пользователя, мы скрыли его.", "")
+			return
 		}
 		message := fmt.Sprintf("🧒Имя оценщика %s\n⭐Оценил вас на %d/10\n", grade.Valuer.Name, grade.Grade)
 		if grade.Valuer.Address == 1 || user.Sub == 1 {
@@ -385,6 +390,11 @@ func handleChangePhotoUploadState(event utils.Event, user utils.User, keyboards 
 }
 
 func handleGoState(event utils.Event, user utils.User, keyboards keyboard.Keyboards) {
+	if user.Photo == "" {
+		database.UpdateState(user.UserID, utils.MENU_STATE)
+		keyboard, _ := keyboards.KeyboardMain.ToJSON()
+		SendMessage(user.UserID, "У тебя отсутствует фотография, ты не можешь оценивать без него.\nДобавь фото через 'Мой профиль' \n\nМеню:", keyboard)
+	}
 	switch event.Object.Message.Payload {
 	case `{"value":"menu"}`:
 		database.UpdateState(user.UserID, utils.MENU_STATE)

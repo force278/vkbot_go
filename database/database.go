@@ -103,7 +103,6 @@ func GetUser(userid uint) (utils.User, bool, error) {
 	if DB == nil {
 		return utils.User{}, false, fmt.Errorf("database connection is not established")
 	}
-
 	query := `SELECT * FROM bibinto WHERE userid = $1`
 	rows, _ := DB.Query(context.Background(), query, userid)
 
@@ -165,7 +164,6 @@ func GetUser(userid uint) (utils.User, bool, error) {
 	if err := rows.Err(); err != nil {
 		return utils.User{}, false, err
 	}
-
 	return user, true, nil
 }
 
@@ -465,11 +463,7 @@ func GetGrades(userid uint) ([]utils.Grade, error) {
 	}()
 
 	// Получаем пять последних оценок
-	query := `SELECT grades.id, grades.userid, grades.valuerid, grades.grade, grades.message 
-FROM grades 
-JOIN bibinto ON grades.valuerid = bibinto.userid 
-WHERE grades.userid = $1 
-ORDER BY grades.message LIMIT 5`
+	query := `SELECT id, userid, valuerid, grade, message FROM grades WHERE userid = $1 LIMIT 5`
 	rows, err := tx.Query(context.Background(), query, userid)
 	if err != nil {
 		return nil, fmt.Errorf("ошибка выполнения запроса на получение оценок: %w", err)
@@ -477,8 +471,6 @@ ORDER BY grades.message LIMIT 5`
 	defer rows.Close()
 
 	var grades []utils.Grade
-	var ids []uint                   // Для хранения ID оценок, которые нужно удалить
-	idMap := make(map[uint]struct{}) // Используем map для отслеживания уникальных
 
 	for rows.Next() {
 		var messageValue sql.NullString
@@ -489,12 +481,7 @@ ORDER BY grades.message LIMIT 5`
 		if messageValue.Valid {
 			g.Message = messageValue.String
 		}
-		// Проверяем уникальность ID
-		if _, exists := idMap[g.ValuerID]; !exists {
-			grades = append(grades, g)     // Добавляем оценку в срез, если ID уникален
-			idMap[g.ValuerID] = struct{}{} // Добавляем ID в map
-		}
-		ids = append(ids, g.ID)
+		grades = append(grades, g)
 	}
 
 	if err := rows.Err(); err != nil {
@@ -510,7 +497,7 @@ ORDER BY grades.message LIMIT 5`
 		return grades, nil
 	}
 
-	// Формируем строку запроса на получение валидаторов
+	// Формируем строку для пользователей
 	valuersQuery := "SELECT * FROM bibinto WHERE userid IN ("
 	for i := range grades {
 		if i > 0 {
@@ -523,7 +510,7 @@ ORDER BY grades.message LIMIT 5`
 	// Преобразуем ids в срез interface{}
 	args := make([]interface{}, len(grades))
 	for i, g := range grades {
-		args[i] = g.ValuerID // Предполагается, что вы хотите использовать ValuerID
+		args[i] = g.ValuerID
 	}
 
 	var valuers []utils.User
@@ -589,10 +576,10 @@ ORDER BY grades.message LIMIT 5`
 	}
 
 	// Удаляем полученные оценки
-	if len(ids) > 0 {
+	if len(grades) > 0 {
 		// Формируем строку запроса на удаление с правильным количеством параметров
 		deleteQuery := "DELETE FROM grades WHERE id IN ("
-		for i := range ids {
+		for i := range grades {
 			if i > 0 {
 				deleteQuery += ", "
 			}
@@ -601,9 +588,9 @@ ORDER BY grades.message LIMIT 5`
 		deleteQuery += ");"
 
 		// Преобразуем ids в срез interface{}
-		deleteArgs := make([]interface{}, len(ids))
-		for i, id := range ids {
-			deleteArgs[i] = id
+		deleteArgs := make([]interface{}, len(grades))
+		for i, g := range grades {
+			deleteArgs[i] = g.ID
 		}
 
 		// Выполняем удаление оценок
@@ -702,7 +689,7 @@ func Top10() ([]string, error) {
 		return nil, fmt.Errorf("database connection is not established")
 	}
 
-	query := `SELECT photo FROM bibinto WHERE id > (SELECT COUNT(id) FROM bibinto)-500 AND people >= 50 AND ban != 1 ORDER BY score/people DESC LIMIT 10`
+	query := `SELECT photo FROM bibinto WHERE id > (SELECT COUNT(id) FROM bibinto)-500 AND people >= 50 AND ban != 1 ORDER BY score/people DESC;`
 	rows, err := DB.Query(context.Background(), query)
 	if err != nil {
 		log.Printf("Ошибка выполнения запроса на получение топа пользователей: %v\n", err)
@@ -849,7 +836,7 @@ func GetAllUsers() ([]uint, error) {
 		return []uint{}, fmt.Errorf("database connection is not established")
 	}
 	var usersIds []uint
-	Query := `SELECT DISTINCT b.userid FROM bibinto AS b JOIN grade AS g ON b.userid = g.userid WHERE b.ban IS NOT NULL AND b.ban <> 1;`
+	Query := `SELECT DISTINCT b.userid FROM bibinto AS b JOIN grades AS g ON b.userid = g.userid WHERE b.ban IS NOT NULL AND b.ban <> 1;`
 	// Выполняем запрос на получение ифны о пользователях
 	rows, err := DB.Query(context.Background(), Query)
 	if err != nil {
@@ -864,137 +851,19 @@ func GetAllUsers() ([]uint, error) {
 		}
 		usersIds = append(usersIds, uId)
 	}
+
+	// Обновляем поле lastmessage для всех полученных пользователей
+	if len(usersIds) > 0 {
+		updateQuery := `
+			UPDATE bibinto 
+			SET lastmessage = NOW() 
+			WHERE userid = ANY($1);
+		`
+		_, err = DB.Exec(context.Background(), updateQuery, usersIds)
+		if err != nil {
+			return []uint{}, fmt.Errorf("ошибка при обновлении lastmessage: %w", err)
+		}
+	}
+
 	return usersIds, nil
-}
-
-func AddStateColumnIfNotExists() error {
-	if DB == nil {
-		return fmt.Errorf("database connection is not established")
-	}
-	// Проверяем, существует ли колонка 'state' в таблице 'bibinto'
-	var exists bool
-	query := `
-		SELECT EXISTS (
-			SELECT 1 
-			FROM information_schema.columns 
-			WHERE table_name='bibinto' AND column_name='state'
-		);
-	`
-	err := DB.QueryRow(context.Background(), query).Scan(&exists)
-	if err != nil {
-		log.Printf("Ошибка при проверке существования колонки: %v\n", err)
-		return err
-	}
-	// Если колонка не существует, добавляем ее
-	if !exists {
-		alterQuery := `ALTER TABLE bibinto ADD COLUMN state int;`
-		_, err := DB.Exec(context.Background(), alterQuery)
-		if err != nil {
-			fmt.Printf("Ошибка при добавлении колонки: %v\n", err)
-			return err
-		}
-		fmt.Println("Колонка 'state' успешно добавлена в таблицу 'bibinto'")
-	} else {
-		fmt.Println("Колонка 'state' уже существует в таблице 'bibinto'")
-	}
-	return nil
-}
-
-func AddRecUserColumnIfNotExists() error {
-	if DB == nil {
-		return fmt.Errorf("database connection is not established")
-	}
-	// Проверяем, существует ли колонка 'state' в таблице 'bibinto'
-	var exists bool
-	query := `
-		SELECT EXISTS (
-			SELECT 1 
-			FROM information_schema.columns 
-			WHERE table_name='bibinto' AND column_name='recuser'
-		);
-	`
-	err := DB.QueryRow(context.Background(), query).Scan(&exists)
-	if err != nil {
-		log.Printf("Ошибка при проверке существования колонки: %v\n", err)
-		return err
-	}
-	// Если колонка не существует, добавляем ее
-	if !exists {
-		alterQuery := `ALTER TABLE bibinto ADD COLUMN recuser bigint default 0;`
-		_, err := DB.Exec(context.Background(), alterQuery)
-		if err != nil {
-			fmt.Printf("Ошибка при добавлении колонки: %v\n", err)
-			return err
-		}
-		fmt.Println("Колонка 'recuser' успешно добавлена в таблицу 'bibinto'")
-	} else {
-		fmt.Println("Колонка 'recuser' уже существует в таблице 'bibinto'")
-	}
-	return nil
-}
-
-func AddRecMessColumnIfNotExists() error {
-	if DB == nil {
-		return fmt.Errorf("database connection is not established")
-	}
-	// Проверяем, существует ли колонка 'state' в таблице 'bibinto'
-	var exists bool
-	query := `
-		SELECT EXISTS (
-			SELECT 1 
-			FROM information_schema.columns 
-			WHERE table_name='bibinto' AND column_name='recmess'
-		);
-	`
-	err := DB.QueryRow(context.Background(), query).Scan(&exists)
-	if err != nil {
-		log.Printf("Ошибка при проверке существования колонки: %v\n", err)
-		return err
-	}
-	// Если колонка не существует, добавляем ее
-	if !exists {
-		alterQuery := `ALTER TABLE bibinto ADD COLUMN recmess TEXT;`
-		_, err := DB.Exec(context.Background(), alterQuery)
-		if err != nil {
-			fmt.Printf("Ошибка при добавлении колонки: %v\n", err)
-			return err
-		}
-		fmt.Println("Колонка 'recmess' успешно добавлена в таблицу 'bibinto'")
-	} else {
-		fmt.Println("Колонка 'recmess' уже существует в таблице 'bibinto'")
-	}
-	return nil
-}
-
-func AddAboutColumnIfNotExists() error {
-	if DB == nil {
-		return fmt.Errorf("database connection is not established")
-	}
-	// Проверяем, существует ли колонка 'state' в таблице 'bibinto'
-	var exists bool
-	query := `
-		SELECT EXISTS (
-			SELECT 1 
-			FROM information_schema.columns 
-			WHERE table_name='bibinto' AND column_name='about'
-		);
-	`
-	err := DB.QueryRow(context.Background(), query).Scan(&exists)
-	if err != nil {
-		log.Printf("Ошибка при проверке существования колонки: %v\n", err)
-		return err
-	}
-	// Если колонка не существует, добавляем ее
-	if !exists {
-		alterQuery := `ALTER TABLE bibinto ADD COLUMN about TEXT;`
-		_, err := DB.Exec(context.Background(), alterQuery)
-		if err != nil {
-			fmt.Printf("Ошибка при добавлении колонки: %v\n", err)
-			return err
-		}
-		fmt.Println("Колонка 'about' успешно добавлена в таблицу 'bibinto'")
-	} else {
-		fmt.Println("Колонка 'about' уже существует в таблице 'bibinto'")
-	}
-	return nil
 }
